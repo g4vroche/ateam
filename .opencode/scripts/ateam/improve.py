@@ -389,7 +389,7 @@ def promote(root: Path, pid: str) -> dict:
             if shutil.which("opencode"):
                 from . import lint as Lint
 
-                errs = Lint.lint_agents(Lint.load_resolved(), strict_required=True)
+                errs = Lint.lint_agents(Lint.load_resolved(root=root), strict_required=True)
                 if errs:
                     raise RuntimeError("agent permission contract broken after promotion: " + "; ".join(errs[:3]))
         elif t == "knowledge":

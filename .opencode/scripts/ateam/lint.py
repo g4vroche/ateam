@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -136,13 +137,15 @@ def evaluate(perms: list[dict], action: str, resource: str) -> str:
     return effect
 
 
-def load_resolved(path: str | None = None) -> list[dict] | None:
+def load_resolved(path: str | None = None, root: Path | None = None) -> list[dict] | None:
     if path:
         return json.loads(Path(path).read_text(encoding="utf-8"))
     if not shutil.which("opencode"):
         return None
     try:
-        out = subprocess.run(["opencode", "debug", "agents"], capture_output=True, text=True, timeout=60)
+        # opencode takes its project directory from $PWD, not from the process cwd
+        env = dict(os.environ, PWD=str(root)) if root else None
+        out = subprocess.run(["opencode", "debug", "agents"], capture_output=True, text=True, timeout=60, cwd=str(root) if root else None, env=env)
         return json.loads(out.stdout)
     except (subprocess.SubprocessError, ValueError):
         return None
@@ -246,7 +249,7 @@ def cmd_lint(args) -> int:
     errs: list[str] = []
     what = args.what
     if what in ("all", "agents"):
-        resolved = load_resolved(args.resolved)
+        resolved = load_resolved(args.resolved, root)
         if resolved is None and what == "all":
             print("note: skipping agents lint (opencode not available)")
         else:
