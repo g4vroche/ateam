@@ -1,16 +1,18 @@
-# runtime data (see README: retention)
+# ateam runtime data (managed by `ateam init`)
 .ateam/work/*/state/
 .ateam/feedback/
 .ateam/knowledge/inbox/
+.ateam/knowledge/drafts/
 .ateam/knowledge/.checkpoint.json
 .ateam/knowledge/.pending.json
 .ateam/knowledge/.lock
-.ateam/knowledge/drafts/
+.ateam/knowledge/.dream.lock
 .ateam/knowledge/dream.log.jsonl
 .ateam/runs/
-bench/results/
+.ateam/installed.json
 __pycache__/
 *.pyc
+bench/results/
+bench/current-src.txt
 .pytest_cache/
 .pytest-lib/
-bench/current-src.txt

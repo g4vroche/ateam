@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Static suite (fake model, no network)
+        run: python -m pytest -q
+      - name: Deterministic lint (skills, work projects, knowledge store)
+        run: |
+          python3 .opencode/scripts/ateam.py lint skills
+          python3 .opencode/scripts/ateam.py lint knowledge
+          python3 .opencode/scripts/ateam.py agents sync-aliases --check
+      # Resolved-agent tests and `lint agents` need the opencode binary; they run (not skip) wherever it is on PATH.
+      - name: Resolved agents (only when opencode is available)
+        run: |
+          if command -v opencode >/dev/null 2>&1; then
+            python3 .opencode/scripts/ateam.py lint agents
+            python -m pytest -q tests/test_agents.py tests/test_prompts.py
+          else
+            echo "opencode not on PATH: resolved-agent checks skipped"
+          fi

@@ -128,6 +128,7 @@ DEFAULT_CONFIG = {
     "skill_budget": 8,
     "feedback_notes_per_task": 2,
     "g1_min_runs": 5,
+    "g1_min_bench": 2,
     "role_retries": 2,
     "retry_backoff_s": 20,
     "final_review": True,
