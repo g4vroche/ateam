@@ -139,6 +139,7 @@ def main():
 
     result = {
         "variant": args.variant,
+        "label": os.environ.get("BENCH_LABEL") or ((BENCH / "label.txt").read_text().strip() if (BENCH / "label.txt").exists() else ""),
         "task": args.task,
         "agent": args.agent,
         "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
