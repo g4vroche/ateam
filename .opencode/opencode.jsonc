@@ -1,0 +1,4 @@
+{
+  // Loaded into every agent's context (verified by spike S1). Keep the file short: its token budget is tested.
+  "instructions": ["./.opencode/policy/core.md"]
+}

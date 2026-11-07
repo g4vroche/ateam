@@ -51,7 +51,11 @@ def main():
 
     task_dir = BENCH / "tasks" / args.task
     request = (task_dir / "request.md").read_text(encoding="utf-8")
-    src = BENCH / "baseline-v0" / ".opencode" if args.variant == "baseline" else REPO / ".opencode"
+    # BENCH_CURRENT_SRC pins the `current` variant to a frozen copy (a directory containing .opencode/), so the
+    # boilerplate can keep evolving while a benchmark series is running.
+    pin_file = BENCH / "current-src.txt"
+    pinned = os.environ.get("BENCH_CURRENT_SRC") or (pin_file.read_text().strip() if pin_file.exists() else None)
+    src = BENCH / "baseline-v0" / ".opencode" if args.variant == "baseline" else (Path(pinned) / ".opencode" if pinned else REPO / ".opencode")
     ws = Path(tempfile.mkdtemp(prefix=f"bench-{args.variant}-"))
     shutil.copytree(src, ws / ".opencode", ignore=shutil.ignore_patterns("__pycache__"))
     sh(["git", "init", "-q"], ws)

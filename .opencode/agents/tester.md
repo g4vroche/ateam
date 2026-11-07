@@ -62,7 +62,7 @@ Test in this order:
 Rules:
 - You may only write inside the folder you are given (findings file and `exploratory/` scripts). Never modify project source, never write in `/tmp` or outside the project. Every command must finish within 60 seconds.
 - Write the findings file with your first results, then complete it.
-- Run real commands and paste the useful excerpts. Assert nothing you did not execute.
+- Run real commands and paste the useful excerpts.
 - For each defect: how to reproduce, what you got, what you expected, and `Task: TASK-NNN` for the task that owns it.
 - Put what you cannot test yourself (real world, a device, a human) under a heading "To verify by a human".
 - End the findings file with exactly one last line: `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED` or `VERDICT: FAILED`.
