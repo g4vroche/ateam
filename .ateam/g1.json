@@ -1,0 +1,54 @@
+{
+  "decision": "no-go",
+  "at": "2026-11-07T17:01:35+01:00",
+  "criteria": [
+    {
+      "name": "benchmark",
+      "label": "final",
+      "n": {
+        "baseline": 3,
+        "current": 3
+      },
+      "met": true,
+      "status": "met",
+      "baseline": {
+        "wall_s": 2400.0,
+        "output_tokens": 122328.0,
+        "pass_rate": 1.0,
+        "timeouts": 3
+      },
+      "current": {
+        "wall_s": 344.1,
+        "output_tokens": 17117.0,
+        "pass_rate": 1.0,
+        "timeouts": 0
+      },
+      "faster": true,
+      "cheaper": true,
+      "correctness_not_lower": true,
+      "detail": "gain without lower correctness"
+    },
+    {
+      "name": "real runs with captured events",
+      "met": false,
+      "status": "not-met",
+      "real_runs": 0,
+      "with_events": 0,
+      "summaries_total": 0,
+      "required": 5,
+      "detail": "0 of 0 real runs produced events (need 5)"
+    },
+    {
+      "name": "recurring patterns",
+      "met": false,
+      "status": "not-met",
+      "recurring": [],
+      "detail": "0 signature(s) recur across >= 2 real runs"
+    }
+  ],
+  "reasons": [
+    "real runs with captured events: 0 of 0 real runs produced events (need 5)",
+    "recurring patterns: 0 signature(s) recur across >= 2 real runs"
+  ],
+  "next": "tune the core loop, collect more real runs, then re-run `ateam.py g1`"
+}
