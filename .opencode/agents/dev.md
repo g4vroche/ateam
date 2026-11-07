@@ -46,6 +46,9 @@ permissions:
     resource: "python3 .opencode/scripts/ateam.py quality *"
     effect: allow
   - action: shell
+    resource: "python3 .opencode/scripts/ateam.py work validate *"
+    effect: allow
+  - action: shell
     resource: "python3 .opencode/scripts/ateam.py feedback note *"
     effect: allow
   - action: shell
@@ -85,6 +88,7 @@ Work loop:
 5. Fill only your own sections of the report file you were given: Decisions Made, Outputs for Dependent Tasks, Known Limitations. The other sections are script-generated.
 
 Rules:
+- Commands that contain `ateam.py` are denied except `quality ...`, `work validate ...`, `feedback note ...` and `knowledge note ...`. The denial is deliberate: do not probe other `ateam.py` commands, just continue.
 - The driver runs the gate and decides completion. Never mark a task complete, edit task files, `plan.md`, `manifest.json`, `.ateam/` or `.opencode/`.
 - Escalate instead of redesigning: if the task is impossible, contradictory, or needs a decision outside its scope, stop and say so in Known Limitations with the concrete obstacle.
 - If you hit a recurring tooling or instruction problem, you may record at most 2 notes per task with `python3 .opencode/scripts/ateam.py feedback note` (load `@feedback-recording` first). Do not do this for ordinary bugs.

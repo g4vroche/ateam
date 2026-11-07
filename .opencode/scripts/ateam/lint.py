@@ -36,6 +36,7 @@ PERMISSION_CONTRACT: list[tuple[str, str, str, str]] = [
     ("coder", "shell", f"{ATEAM} run demo", "deny"),
     ("coder", "shell", f"{ATEAM} quality all", "allow"),
     ("coder", "subagent", "coder", "deny"),
+    ("coder", "shell", f"{ATEAM} work validate demo", "allow"),
     ("coder", "shell", f"{ATEAM} feedback note --category x", "allow"),
     ("coder", "shell", f"{ATEAM} knowledge note x --source y", "allow"),
     ("coder", "shell", f"{ATEAM} feedback mark FB-000001 addressed", "deny"),
@@ -190,45 +191,24 @@ def _norm_perms(perms: list[dict]) -> list[tuple]:
     return [(p["action"], p["resource"], p["effect"]) for p in perms]
 
 
-_REF_RE = re.compile(r"`((?:references|scripts)/[A-Za-z0-9_./-]+)`")
-
-
 def lint_skills(root: Path) -> list[str]:
+    from . import skills_lint as SL
+
     errs: list[str] = []
     sdir = root / ".opencode" / "skills"
     if not sdir.is_dir():
         return errs
-    descs: dict[str, set[str]] = {}
     cfg = load_config(root)
+    descs = SL.installed_descriptions(root)
     active = 0
     for d in sorted(p for p in sdir.iterdir() if p.is_dir()):
-        sk = d / "SKILL.md"
-        if not sk.exists():
-            errs.append(f"{d.name}: SKILL.md missing")
-            continue
+        errs.extend(SL.lint_skill_dir(d, descs))
         try:
-            meta, body = fm.parse_file(sk)
-        except fm.FrontmatterError as exc:
-            errs.append(f"{d.name}: frontmatter: {exc}")
+            meta, _ = fm.parse_file(d / "SKILL.md")
+        except (fm.FrontmatterError, OSError):
             continue
-        errs.extend(f"{d.name}: {e}" for e in schemas.validate_skill(meta, body, d.name))
-        for ref in _REF_RE.findall(body):
-            if not (d / ref).exists():
-                errs.append(f"{d.name}: referenced path {ref} does not exist")
-        if len(body.split("\n")) > 140:
-            errs.append(f"{d.name}: body over 140 lines; move detail into references/")
-        words = set(re.findall(r"[a-z]{4,}", str(meta.get("description", "")).lower()))
-        descs[d.name] = words
-        lc = (meta.get("metadata") or {}).get("ateam/lifecycle", "active")
-        if lc == "active":
+        if SL.lifecycle(meta) == "active":
             active += 1
-    names = list(descs)
-    for i, a in enumerate(names):
-        for b in names[i + 1 :]:
-            inter = len(descs[a] & descs[b])
-            union = len(descs[a] | descs[b]) or 1
-            if inter / union > 0.6:
-                errs.append(f"skills {a} and {b} overlap (description similarity {inter / union:.2f})")
     if active > cfg["skill_budget"]:
         errs.append(f"{active} active skills exceed skill_budget {cfg['skill_budget']}")
     return errs

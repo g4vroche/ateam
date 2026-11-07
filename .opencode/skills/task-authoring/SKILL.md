@@ -41,7 +41,7 @@ run from the project root, and fail (non-zero) when the outcome is not met.
 `files` (scope the coder may touch), `reads` (docs to read), `knowledge` (KNOW ids), `skills` (explicit skill
 ids), `quality` (categories checked by the gate; default format, lint, typecheck, test).
 - `review: required` for security, data migrations, public API changes, concurrency, or gate/config changes.
-- Set `touches_gate: true` (needs `review: required`) only for tasks that change `.ateam/quality.json`.
+- Set `touches_gate: true` (needs `review: required`) only for the task that establishes quality tooling.
 - List a skill under `skills:` only when this task needs it; each one is loaded into the coder's context.
 
 ## Examples
