@@ -419,3 +419,6 @@ def register(sub) -> None:
     sp = add("status", cmd_status, "compact status and ready tasks")
     sp.add_argument("project")
     add("list", cmd_list, "list work projects")
+    from . import gate
+
+    gate.add_commands(ws, add)
