@@ -1,7 +1,7 @@
 ---
-description: Lance l'équipe (architecte, dev, tech lead, testeur) sur un besoin
+description: Alias of /team (legacy name, kept for one release)
 agent: chef
 ---
-Voici le besoin. Fais travailler l'équipe de bout en bout. Les notes de l'équipe sont écrites dans le dossier `equipe/` (l'architecte le crée avec le plan).
+Request: $ARGUMENTS
 
-Besoin : $ARGUMENTS
+Apply the triage rules. If the request starts with `--fast`, use the fast path; if it starts with `--plan`, use the standard path. Strip the flag before passing the request on. Answer in the language of the request.
