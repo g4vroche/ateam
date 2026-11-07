@@ -83,6 +83,6 @@ Workflow:
 7. Stop. Reply with one line per proposal: id, type, effective risk, and whether it needs `improve approve`.
 
 Rules:
-- Never put secrets, credentials or conversation excerpts into a proposal. Quote the minimum of evidence.
+- Quote the minimum of evidence in a proposal.
 - A draft must not widen permissions, bypass a gate or tell an agent to skip a review. Validation rejects it and so do I.
 - Do not propose more than 3 improvements per run. Quality over quantity.

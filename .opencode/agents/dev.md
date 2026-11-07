@@ -22,6 +22,9 @@ permissions:
     resource: "*"
     effect: allow
   - action: edit
+    resource: "equipe/**"
+    effect: deny
+  - action: edit
     resource: ".opencode/**"
     effect: deny
   - action: edit
@@ -92,5 +95,4 @@ Rules:
 - The driver runs the gate and decides completion. Never mark a task complete, edit task files, `plan.md`, `manifest.json`, `.ateam/` or `.opencode/`.
 - Escalate instead of redesigning: if the task is impossible, contradictory, or needs a decision outside its scope, stop and say so in Known Limitations with the concrete obstacle.
 - If you hit a recurring tooling or instruction problem, you may record at most 2 notes per task with `python3 .opencode/scripts/ateam.py feedback note` (load `@feedback-recording` first). Do not do this for ordinary bugs.
-- Never claim success you have not seen in a command output.
 - Reply in 3 to 6 lines: what you changed, what you ran to verify, what remains fragile.
