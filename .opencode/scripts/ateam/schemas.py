@@ -205,6 +205,11 @@ def validate_task(meta: dict, body: str, filename: str | None = None) -> list[st
     ma = meta.get("max_attempts", 3)
     if not isinstance(ma, int) or isinstance(ma, bool) or not 1 <= ma <= 10:
         errs.append("max_attempts must be an integer in 1..10")
+    for flag in ("touches_gate", "allow_no_changes"):
+        if flag in meta and not isinstance(meta[flag], bool):
+            errs.append(f"{flag} must be true or false")
+    if meta.get("touches_gate") is True and meta.get("review") != "required":
+        errs.append("a task with touches_gate: true must set review: required")
     for key in ("files", "reads", "knowledge", "skills", "quality"):
         v = meta.get(key)
         if v is not None and not _is_list_of_str(v):
