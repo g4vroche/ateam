@@ -37,7 +37,12 @@ def bench_criterion(root: Path, bench_dir: Path | None, min_runs: int) -> dict:
         if r.get("variant") not in by or r.get("leaked_into_repo") or not (r.get("hidden") or {}).get("total"):
             continue
         by[r["variant"]].append(r)
-    out: dict = {"name": "benchmark", "n": {k: len(v) for k, v in by.items()}}
+    # `current` results carry the label of the code they measured; only the newest label counts, so a
+    # mid-point result for an older version cannot veto (or approve) the final one.
+    newest = max(by["current"], key=lambda r: r.get("when", ""), default=None)
+    label = newest.get("label", "") if newest else ""
+    by["current"] = [r for r in by["current"] if r.get("label", "") == label]
+    out: dict = {"name": "benchmark", "label": label, "n": {k: len(v) for k, v in by.items()}}
     if min(len(v) for v in by.values()) < min_runs:
         out.update(met=False, status="insufficient-data", detail=f"need >= {min_runs} valid runs per variant, have {out['n']}")
         return out
