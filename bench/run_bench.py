@@ -34,6 +34,22 @@ def sh(cmd, cwd, timeout=120):
     return subprocess.run(cmd, cwd=cwd, env=env_for(cwd), capture_output=True, text=True, timeout=timeout)
 
 
+def leak_check(ws, t0):
+    """Files the agent created in the workspace that also appeared in the ateam repository during the run.
+    (Comparing `git status` before/after is not usable while the repository is being edited.)"""
+    leaked = []
+    for p in ws.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(ws)
+        if rel.parts[0] in (".git", ".opencode", "__pycache__") or "__pycache__" in rel.parts:
+            continue
+        twin = REPO / rel
+        if twin.is_file() and twin.stat().st_mtime >= t0:
+            leaked.append(str(rel))
+    return leaked
+
+
 def repo_state():
     r = subprocess.run(["git", "status", "--porcelain"], cwd=REPO, capture_output=True, text=True)
     return r.stdout
@@ -100,7 +116,8 @@ def main():
         os.killpg(proc.pid, signal.SIGKILL)
     th.join(5)
     wall = time.time() - t0
-    leaked = repo_state() != before
+    leaked_paths = leak_check(ws, t0)
+    leaked = bool(leaked_paths)
     if leaked:
         print("ERROR: the run modified the ateam repository; result is invalid", file=sys.stderr)
 
@@ -128,6 +145,7 @@ def main():
         "wall_s": round(wall, 1),
         "timed_out": timed_out,
         "leaked_into_repo": leaked,
+        "leaked_paths": leaked_paths,
         "exit_code": proc.returncode,
         "stream": {**events, "sessions": len(events["sessions"])},
         "stats": stats,
