@@ -128,6 +128,8 @@ class Driver:
             "project": project,
             "adhoc": adhoc,
             "resume": resume,
+            # a run is "real" only when it drove a genuine model; fake shims used by tests never count toward gate G1
+            "real": not (os.environ.get("FAKE_OC_SCRIPT") or "fake_opencode" in str(self.binary)),
             "pid": os.getpid(),
             "started": now_iso(),
             "finished": None,

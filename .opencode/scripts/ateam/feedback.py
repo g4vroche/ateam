@@ -286,7 +286,7 @@ def finish_run(root: Path, record: dict, pdir: Path) -> Path:
                 procedures.append({"id": e["id"], "signature": e["signature"], "workaround": wk[:300]})
     totals = record["totals"]
     summary = {
-        "run": run_id, "project": record["project"], "status": record["status"], "wall_s": record.get("wall_s"),
+        "run": run_id, "real": bool(record.get("real")), "project": record["project"], "status": record["status"], "wall_s": record.get("wall_s"),
         "completed": completed, "failed": failed,
         "repeated_problems": [{"signature": g["signature"], "count": g["count"], "ids": g["ids"][:5]} for g in repeated],
         "events_this_run": {g["signature"]: g["count"] for g in groups},

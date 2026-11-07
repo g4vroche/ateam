@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-AREAS = ["work", "quality", "agents", "run", "feedback", "knowledge", "improve", "lint", "gc", "init_cmd"]
+AREAS = ["work", "quality", "agents", "run", "feedback", "knowledge", "improve", "g1", "lint", "gc", "init_cmd"]
 
 
 def build_parser() -> argparse.ArgumentParser:
