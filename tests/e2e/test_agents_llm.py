@@ -40,10 +40,13 @@ def test_skillsmith_writes_a_valid_proposal_only_under_proposals(tmp_path, ateam
     for i, run in enumerate(("RUN-20261107-001", "RUN-20261107-002"), start=1):
         F.add_note(ws, category="tooling-gap", severity="medium", signature="unittest-needs-package-init", problem="`unittest discover -t .` fails until tests/__init__.py exists; cost 4 failed commands",
                    evidence=[".ateam/runs/x.log"], task=f"TASK-00{i}", run_id=run, agent="coder", context="", workaround="touch tests/__init__.py", improvement="document or auto-create it")
-    before = {p for p in ws.rglob("*") if p.is_file() and ".git" not in p.parts}
+    def snapshot():
+        return {p for p in ws.rglob("*") if p.is_file() and ".git" not in p.parts and "__pycache__" not in p.parts}
+
+    before = snapshot()
     res = run_agent(ws, "skillsmith", "Review the open feedback and write at most one proposal.", timeout=1200)
     assert res["code"] == 0
-    changed = {p for p in ws.rglob("*") if p.is_file() and ".git" not in p.parts} - before
+    changed = snapshot() - before
     assert all(".ateam/proposals/" in str(p.relative_to(ws)) or ".ateam/feedback/" in str(p.relative_to(ws)) for p in changed), changed
     props = sorted((ws / ".ateam/proposals").glob("PROP-*"))
     if props:  # an agent may legitimately decide nothing recurs enough; if it wrote one, it must validate
