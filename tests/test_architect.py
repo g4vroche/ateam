@@ -106,20 +106,6 @@ def test_golden_project_has_no_quality_gap_warning_with_gate_task(project, ateam
     assert "TASK-002: needs quality" not in out
 
 
-# ---------------------------------------------------------------------- aliases
-def test_aliases_are_generated_and_current():
-    assert A.sync_aliases(REPO, check=True) == [], "run: python3 .opencode/scripts/ateam.py agents sync-aliases"
-
-
-def test_alias_text_marks_hidden_and_keeps_permissions():
-    src = "---\ndescription: X\nmode: subagent\nmodel: a/b\npermissions:\n  - action: edit\n    resource: '*'\n    effect: deny\n---\nbody\n"
-    out = A.alias_text(src, "t")
-    assert "hidden: true" in out and "Legacy alias of `t`" in out
-    assert out.split("---\n")[1].count("action: edit") == 1 and out.endswith("body\n")
-
-
-# ------------------------------------------------------------------ resolved agent
-@needs_opencode
 def test_architect_resolved_permissions_and_alias_parity():
     res = resolved_agents()
     by = {a["id"]: a for a in res}
@@ -128,7 +114,6 @@ def test_architect_resolved_permissions_and_alias_parity():
     assert L.evaluate(arch["permissions"], "edit", "src/app.py") == "deny"
     assert L.evaluate(arch["permissions"], "shell", L.ATEAM + " work validate p") == "allow"
     assert L.evaluate(arch["permissions"], "shell", "ls") == "deny"
-    assert by["architecte"]["hidden"] is True
-    assert L._norm_perms(by["architecte"]["permissions"]) == L._norm_perms(arch["permissions"])
+    assert "architecte" not in by, "French alias architecte should be removed"
     errs = L.lint_agents(res, strict_required=False)
     assert not [e for e in errs if e.startswith("architect")], errs

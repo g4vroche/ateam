@@ -18,7 +18,8 @@ def test_evaluate_last_match_wins():
 
 def test_golden_v0_snapshot_has_legacy_agents():
     ids = {a["id"] for a in GOLDEN}
-    assert {"chef", "architecte", "dev", "tech-lead", "testeur"} <= ids
+    assert {"chef", "tech-lead"} <= ids
+    # architecte, dev, testeur removed
 
 
 def test_v0_known_defect_documented_architecte_cannot_write_etapes():

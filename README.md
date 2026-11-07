@@ -30,8 +30,6 @@ Requirements: OpenCode 2.x with models `chrx-architect`, `chrx-coder`, `chrx-fas
 | `skillsmith` | chrx-architect | turn recurring feedback into proposals (locked until G1) | install anything |
 | `dreamer` | chrx-fast | consolidate durable knowledge into drafts (locked until G1) | write outside drafts |
 
-Hidden aliases `architecte`, `dev`, `testeur` (generated from the English agents) stay for one release.
-
 **Standard path**: Chef → `architect` (writes `.ateam/work/<project>/`) → `python3 .opencode/scripts/ateam.py run <project>` in the background.
 **Fast path** (single deliverable, no new component): `ateam.py run --adhoc "<request>"` creates a one-task project and skips the architect. `/team --fast` and `/team --plan` force a path.
 

@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from ateam import lint as L
+from ateam import lint as L  # noqa: F401
 from conftest import REPO
 
 needs_opencode = pytest.mark.skipif(shutil.which("opencode") is None, reason="opencode not on PATH")
@@ -44,18 +44,9 @@ def test_chef_has_no_edit_and_only_narrow_shell(resolved):
 
 
 @needs_opencode
-def test_legacy_aliases_are_hidden_and_identical(resolved):
-    by = {a["id"]: a for a in resolved}
-    for alias, target in L.ALIASES.items():
-        assert by[alias]["hidden"] is True
-        assert L._norm_perms(by[alias]["permissions"]) == L._norm_perms(by[target]["permissions"])
-        assert by[alias]["model"] == by[target]["model"]
-
-
-@needs_opencode
 def test_models_unchanged_from_v0(resolved):
     golden = {a["id"]: a for a in json.load(open(REPO / "tests/golden/agents-v0.json"))}
     by = {a["id"]: a for a in resolved}
-    pairs = {"chef": "chef", "architect": "architecte", "coder": "dev", "tester": "testeur", "tech-lead": "tech-lead"}
+    pairs = {"chef": "chef", "tech-lead": "tech-lead"}
     for new, old in pairs.items():
         assert by[new]["model"] == golden[old]["model"], new

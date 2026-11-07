@@ -1,5 +1,5 @@
 {
-  "_doc": "Every permission difference between agents-v0.json (the original boilerplate) and the resolved agents must be listed here with a reason. Resources are fnmatch globs over the probed resource strings. Reviewed in Phase 8.",
+  "_doc": "Every permission difference between agents-v0.json (the original boilerplate) and the resolved agents must be listed here with a reason. The French aliases (architecte, dev, testeur) have been removed. Reviewed in Phase 8/Phase 9.",
   "changes": [
     {
       "agent": "*",
@@ -8,30 +8,6 @@
       "from": "ask",
       "to": "deny",
       "reason": "`opencode run --auto` approves `ask`, so unattended runs would read secrets. .env files are denied; .env.example stays readable."
-    },
-    {
-      "agent": "architecte",
-      "action": "edit",
-      "resource": ".ateam/work/*",
-      "from": "deny",
-      "to": "allow",
-      "reason": "The architect now writes plan.md, tasks and manifest under .ateam/work/ (v0 could not write its own equipe/etapes output)."
-    },
-    {
-      "agent": "architecte",
-      "action": "edit",
-      "resource": "equipe/*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "The legacy equipe/ layout is replaced by .ateam/work/ (migrate-legacy archives it)."
-    },
-    {
-      "agent": "architecte",
-      "action": "shell",
-      "resource": "*ateam.py*",
-      "from": "deny",
-      "to": "allow",
-      "reason": "Narrow grants: work init, new-task, sync, validate, graph, split, status and quality detect only; completion and gate commands stay denied."
     },
     {
       "agent": "*",
@@ -74,62 +50,6 @@
       "reason": "English agent ids replace the French ones."
     },
     {
-      "agent": "chef",
-      "action": "subagent",
-      "resource": "architecte",
-      "from": "allow",
-      "to": "deny",
-      "reason": "French aliases stay installed for one release for direct use; the chef delegates to the English ids."
-    },
-    {
-      "agent": "chef",
-      "action": "subagent",
-      "resource": "dev",
-      "from": "allow",
-      "to": "deny",
-      "reason": "French aliases stay installed for one release for direct use; the chef delegates to the English ids."
-    },
-    {
-      "agent": "chef",
-      "action": "subagent",
-      "resource": "testeur",
-      "from": "allow",
-      "to": "deny",
-      "reason": "French aliases stay installed for one release for direct use; the chef delegates to the English ids."
-    },
-    {
-      "agent": "dev",
-      "action": "edit",
-      "resource": ".ateam/*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "The coder cannot edit its own task, gate configuration or runtime state; only its report under .ateam/work/*/reports/ stays writable."
-    },
-    {
-      "agent": "dev",
-      "action": "edit",
-      "resource": ".opencode/*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "The coder cannot edit agents, scripts, skills or policy."
-    },
-    {
-      "agent": "dev",
-      "action": "read",
-      "resource": ".ateam/work/*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "plan.md and manifest.json are not part of the coder's context (task files are the interface)."
-    },
-    {
-      "agent": "dev",
-      "action": "shell",
-      "resource": "*ateam.py*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "The coder may only run quality, work validate, feedback note and knowledge note; it cannot complete tasks or run gates."
-    },
-    {
       "agent": "tech-lead",
       "action": "edit",
       "resource": ".ateam/work/*",
@@ -162,28 +82,52 @@
       "reason": "Read-only history for reviewing diffs."
     },
     {
-      "agent": "testeur",
-      "action": "edit",
-      "resource": ".ateam/work/*",
-      "from": "deny",
-      "to": "allow",
-      "reason": "The tester writes findings and exploratory scripts under .ateam/work/*/reviews/."
+      "agent": "architecte",
+      "action": "*",
+      "resource": "*",
+      "from": "present",
+      "to": "missing",
+      "reason": "French alias architecte has been removed; the architect English agent is the canonical entry point."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "architecte",
+      "from": "allow",
+      "to": "deny",
+      "reason": "architecte removed; chef delegates to architect (English)."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "dev",
+      "from": "allow",
+      "to": "deny",
+      "reason": "dev (alias for coder) removed; chef delegates to coder (English)."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "testeur",
+      "from": "allow",
+      "to": "deny",
+      "reason": "testeur (alias for tester) removed; chef delegates to tester (English)."
+    },
+    {
+      "agent": "dev",
+      "action": "*",
+      "resource": "*",
+      "from": "present",
+      "to": "missing",
+      "reason": "French alias dev has been removed; coder is the canonical agent."
     },
     {
       "agent": "testeur",
-      "action": "edit",
-      "resource": "equipe/*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "Legacy equipe/ replaced by .ateam/work/."
-    },
-    {
-      "agent": "testeur",
-      "action": "shell",
-      "resource": "*ateam.py*",
-      "from": "allow",
-      "to": "deny",
-      "reason": "The tester may only run quality commands; it cannot complete tasks, run gates or record notes."
+      "action": "*",
+      "resource": "*",
+      "from": "present",
+      "to": "missing",
+      "reason": "French alias testeur has been removed; tester is the canonical agent."
     }
   ],
   "new_agents": [
@@ -194,10 +138,12 @@
     "dreamer"
   ],
   "unchanged_models": {
-    "architecte": "chrx-architect",
     "chef": "chrx-coder",
-    "dev": "chrx-coder",
-    "tech-lead": "chrx-architect",
-    "testeur": "chrx-coder"
-  }
+    "tech-lead": "chrx-architect"
+  },
+  "removed_agents": [
+    "architecte",
+    "dev",
+    "testeur"
+  ]
 }
