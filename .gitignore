@@ -1,0 +1,11 @@
+# runtime data (see README: retention)
+.ateam/work/*/state/
+.ateam/feedback/
+.ateam/knowledge/inbox/
+.ateam/knowledge/.checkpoint.json
+.ateam/runs/
+bench/results/
+__pycache__/
+*.pyc
+.pytest_cache/
+.pytest-lib/

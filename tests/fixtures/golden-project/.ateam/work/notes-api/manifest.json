@@ -1,0 +1,40 @@
+{
+  "project": "notes-api",
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "file": "tasks/001-establish-quality-tooling.md",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "high"
+    },
+    {
+      "id": "TASK-002",
+      "file": "tasks/002-domain-model.md",
+      "status": "pending",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "priority": "high"
+    },
+    {
+      "id": "TASK-003",
+      "file": "tasks/003-api-implementation.md",
+      "status": "pending",
+      "dependencies": [
+        "TASK-002"
+      ],
+      "priority": "medium"
+    },
+    {
+      "id": "TASK-004",
+      "file": "tasks/004-integration-tests.md",
+      "status": "pending",
+      "dependencies": [
+        "TASK-002",
+        "TASK-003"
+      ],
+      "priority": "medium"
+    }
+  ]
+}
