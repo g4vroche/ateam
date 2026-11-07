@@ -112,7 +112,7 @@ def detect(root: Path) -> dict:
             put("build", _entry(f"{runner} {s}", "package.json scripts", have_npm))
     # Python
     pyproject = _read(root, "pyproject.toml")
-    py_markers = pyproject or (root / "setup.cfg").exists() or (root / "requirements.txt").exists() or any(root.glob("*.py"))
+    py_markers = pyproject or (root / "setup.cfg").exists() or (root / "requirements.txt").exists() or any(root.glob("*.py")) or any(root.glob("tests/*.py")) or any(root.glob("test/*.py"))
     if py_markers:
         reqs = " ".join(_read(root, n) for n in ("requirements.txt", "requirements-dev.txt", "setup.cfg")) + pyproject
         if "[tool.ruff" in pyproject or re.search(r"\bruff\b", reqs):
