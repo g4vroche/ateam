@@ -68,6 +68,15 @@ PROPOSAL_STATUSES = ("proposed", "validated", "active", "deprecated", "rejected"
 SKILL_LIFECYCLE = ("proposed", "validated", "active", "deprecated")
 REPORT_STATUSES = ("completed", "partial", "blocked")
 
+PLAN_SECTIONS = (
+    "Objective",
+    "Scope and Non-Goals",
+    "Architectural Decisions",
+    "Shared Constraints",
+    "Task Graph",
+    "Acceptance Criteria",
+    "Progress",
+)
 TASK_REQUIRED_SECTIONS = ("Objective", "Files to Inspect", "Acceptance Criteria", "Verification Commands")
 TASK_OPTIONAL_SECTIONS = (
     "Context",
@@ -253,6 +262,17 @@ def validate_task(meta: dict, body: str, filename: str | None = None) -> list[st
         for chk in c["checks"]:
             if chk not in available:
                 errs.append(f"{c['id']} references unknown check {chk!r}")
+    return errs
+
+
+def validate_plan(body: str) -> list[str]:
+    errs: list[str] = []
+    sections = parse_sections(body)
+    for sec in PLAN_SECTIONS:
+        if sec not in sections:
+            errs.append(f"plan section '# {sec}' is missing")
+        elif not sections[sec].strip():
+            errs.append(f"plan section '# {sec}' is empty")
     return errs
 
 

@@ -194,6 +194,9 @@ def validate_project(root: Path, project: str) -> tuple[list[str], list[str]]:
     for need in ("plan.md", "manifest.json", "tasks"):
         if not (pdir / need).exists():
             errors.append(f"missing {need}")
+    plan = pdir / "plan.md"
+    if plan.exists():
+        errors.extend(schemas.validate_plan(plan.read_text(encoding="utf-8")))
     tasks = load_tasks(pdir)
     cfg = load_config(root)
     by_id: dict[str, Task] = {}
@@ -203,7 +206,9 @@ def validate_project(root: Path, project: str) -> tuple[list[str], list[str]]:
         if t.id in by_id:
             errors.append(f"duplicate task id {t.id}")
         by_id[t.id] = t
-        if len(t.body) > cfg["max_task_chars"]:
+        if len(t.body) > 2 * cfg["max_task_chars"]:
+            errors.append(f"{t.id}: task body is {len(t.body)} chars (hard limit {2 * cfg['max_task_chars']}); split it")
+        elif len(t.body) > cfg["max_task_chars"]:
             warnings.append(f"{t.id}: task body is {len(t.body)} chars (budget {cfg['max_task_chars']}); split it or move detail into a referenced doc")
         for s in t.meta.get("skills") or []:
             if not (root / ".opencode" / "skills" / s / "SKILL.md").exists():
@@ -219,6 +224,7 @@ def validate_project(root: Path, project: str) -> tuple[list[str], list[str]]:
     cyc = find_cycle(good)
     if cyc:
         errors.append("dependency cycle: " + " -> ".join(cyc))
+    warnings.extend(_quality_gap_warnings(root, good))
     # manifest consistency
     mpath = pdir / "manifest.json"
     if mpath.exists():
@@ -264,6 +270,37 @@ def validate_project(root: Path, project: str) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def _quality_gap_warnings(root: Path, tasks: list[Task]) -> list[str]:
+    """A task that needs a missing quality category must depend (transitively) on a touches_gate task."""
+    from . import quality as Q
+
+    try:
+        eff = Q.effective(root)
+    except Exception:  # noqa: BLE001 - detection must never break validation
+        return []
+    missing = {c for c, e in eff.items() if e["status"] == "missing" or (e["status"] in ("configured", "detected") and not e.get("available", True))}
+    if not missing:
+        return []
+    by_id = task_index(tasks)
+
+    def ancestors(tid: str, seen: set[str]) -> set[str]:
+        for d in by_id[tid].deps if tid in by_id else []:
+            if d not in seen and d in by_id:
+                seen.add(d)
+                ancestors(d, seen)
+        return seen
+
+    out = []
+    for t in tasks:
+        need = [c for c in (t.meta.get("quality") if t.meta.get("quality") is not None else Q.DEFAULT_PROFILE) if c in missing]
+        if not need or t.meta.get("touches_gate"):
+            continue
+        if any(by_id[a].meta.get("touches_gate") for a in ancestors(t.id, set())):
+            continue
+        out.append(f"{t.id}: needs quality {need}, which is not configured, and no earlier touches_gate task establishes it")
+    return out
+
+
 # ----------------------------------------------------------------------- commands
 def cmd_init(args) -> int:
     root = find_root(args.root)
@@ -306,6 +343,93 @@ def cmd_new_task(args) -> int:
     atomic_write(path, text)
     sync_manifest(root, args.project)
     emit({"id": tid, "file": str(path.relative_to(pdir))}, args.json, f"created {path}")
+    return 0
+
+
+ATEAM_CMD = "python3 .opencode/scripts/ateam.py"
+
+
+def create_adhoc(root: Path, request: str, project: str | None = None) -> tuple[str, str]:
+    """Fast path: a one-task project built from the request, with no architect.
+
+    The task still carries a verify block, the detected quality profile and a manual criterion that the final
+    review checks against the diff. Returns (project, task id).
+    """
+    from . import quality as Q
+
+    request = request.strip()
+    if not request:
+        die("adhoc request is empty")
+    first = request.splitlines()[0].strip()
+    title = first[:80].rstrip()
+    if project is None:
+        stamp = _dt_stamp()
+        project = f"adhoc-{stamp}-{slugify(first, 24)}"
+    pdir = project_dir(root, project)
+    if pdir.exists() and any(pdir.iterdir()):
+        die(f"{pdir} already exists")
+    for sub in ("tasks", "reports", "reviews", "state"):
+        (pdir / sub).mkdir(parents=True, exist_ok=True)
+    quoted = "\n".join("> " + ln if ln.strip() else ">" for ln in request.splitlines())
+    atomic_write(
+        pdir / "plan.md",
+        "# Objective\n"
+        f"{first}\n\n# Scope and Non-Goals\nSingle request on the fast path; no decomposition.\n\n"
+        "# Architectural Decisions\nNone (no architect run).\n\n# Shared Constraints\nFollow the project conventions.\n\n"
+        "# Task Graph\nTASK-001\n\n# Acceptance Criteria\nSee TASK-001.\n\n# Progress\n0/1 completed.\n",
+    )
+    eff = Q.effective(root)
+    cats = [c for c in Q.DEFAULT_PROFILE if eff[c]["status"] in ("configured", "detected", "not_applicable") and eff[c].get("available", True)]
+    crit = [
+        "- AC1: The request is implemented as stated. [manual]",
+        "- AC2: The project plan stays valid. [check: plan]",
+    ]
+    if cats:
+        crit.append(f"- AC3: The configured quality checks pass. [check: {','.join(cats)}]")
+    text = (
+        "---\n"
+        "id: TASK-001\n"
+        f"title: {fm._fmt_scalar(title)}\n"
+        "status: pending\n"
+        "dependencies: []\n"
+        "priority: medium\n"
+        "review: none\n"
+        "max_attempts: 3\n"
+        "files: []\n"
+        "reads: []\n"
+        "knowledge: []\n"
+        "skills: []\n"
+        f"quality: [{', '.join(cats)}]\n"
+        "adhoc: true\n"
+        "---\n\n"
+        f"# Objective\nImplement the request quoted under Context, with the smallest change that satisfies it.\n\n"
+        "# Context\n" + quoted + "\n\n"
+        "# Files to Inspect\nChosen by the coder from the request; read only what is needed.\n\n"
+        "# Acceptance Criteria\n" + "\n".join(crit) + "\n\n"
+        "# Verification Commands\n\n```verify\n"
+        f"plan: {ATEAM_CMD} work validate {project}\n"
+        "```\n"
+    )
+    atomic_write(pdir / "tasks" / "001-request.md", text)
+    write_json(pdir / "manifest.json", {"project": project, "tasks": []})
+    sync_manifest(root, project)
+    return project, "TASK-001"
+
+
+def _dt_stamp() -> str:
+    import datetime as dt
+
+    return dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def cmd_adhoc(args) -> int:
+    root = find_root(args.root)
+    request = args.request if args.request != "-" else sys.stdin.read()
+    project, tid = create_adhoc(root, request, args.project)
+    errors, _ = validate_project(root, project)
+    if errors:
+        die("adhoc project is invalid: " + "; ".join(errors))
+    emit({"project": project, "task": tid}, args.json, f"{project} {tid}")
     return 0
 
 
@@ -409,6 +533,9 @@ def register(sub) -> None:
     sp.add_argument("--slug")
     sp.add_argument("--deps", default="")
     sp.add_argument("--priority", default="medium", choices=schemas.PRIORITIES)
+    sp = add("adhoc", cmd_adhoc, "fast path: create a one-task project from a request (use '-' to read stdin)")
+    sp.add_argument("request")
+    sp.add_argument("--project")
     sp = add("sync", cmd_sync, "rebuild manifest.json from task files")
     sp.add_argument("project")
     sp = add("validate", cmd_validate, "validate plan, tasks, manifest, graph")

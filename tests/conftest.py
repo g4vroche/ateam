@@ -53,3 +53,13 @@ def ateam():
         return p.returncode, p.stdout, p.stderr
 
     return run
+
+
+FILLED_PLAN = (
+    "# Objective\nTest objective.\n\n# Scope and Non-Goals\nTest scope.\n\n# Architectural Decisions\nNone.\n\n"
+    "# Shared Constraints\nNone.\n\n# Task Graph\nTASK-001\n\n# Acceptance Criteria\nGate passes.\n\n# Progress\n0/1 completed.\n"
+)
+
+
+def fill_plan(root, project):
+    (root / ".ateam" / "work" / project / "plan.md").write_text(FILLED_PLAN)

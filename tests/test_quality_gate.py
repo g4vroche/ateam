@@ -60,6 +60,10 @@ def ws(tmp_path, ateam):
         )
     )
     ateam(root, "work", "init", "p")
+    (root / ".ateam/work/p/plan.md").write_text(
+        "# Objective\nx\n\n# Scope and Non-Goals\nx\n\n# Architectural Decisions\nx\n\n# Shared Constraints\nx\n\n"
+        "# Task Graph\nTASK-001\n\n# Acceptance Criteria\nx\n\n# Progress\n0/1\n"
+    )
     ateam(root, "work", "new-task", "p", "Implement add", "--slug", "add")
     tp = root / ".ateam/work/p/tasks/001-add.md"
     meta, _ = fm.parse_file(tp)
