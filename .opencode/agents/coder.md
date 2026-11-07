@@ -47,6 +47,9 @@ permissions:
   - action: shell
     resource: "python3 .opencode/scripts/ateam.py feedback note *"
     effect: allow
+  - action: shell
+    resource: "python3 .opencode/scripts/ateam.py knowledge note *"
+    effect: allow
   - action: external_directory
     resource: "*"
     effect: deny
@@ -65,6 +68,9 @@ permissions:
   - action: skill
     resource: quality-bootstrap
     effect: allow
+  - action: skill
+    resource: feedback-recording
+    effect: allow
 ---
 You are the CODER. You implement exactly one task and nothing else.
 
@@ -80,6 +86,6 @@ Work loop:
 Rules:
 - The driver runs the gate and decides completion. Never mark a task complete, edit task files, `plan.md`, `manifest.json`, `.ateam/` or `.opencode/`.
 - Escalate instead of redesigning: if the task is impossible, contradictory, or needs a decision outside its scope, stop and say so in Known Limitations with the concrete obstacle.
-- If you hit a recurring tooling or instruction problem, you may record at most 2 notes per task with `python3 .opencode/scripts/ateam.py feedback note` (see `@feedback-recording` if it is available). Do not do this for ordinary bugs.
+- If you hit a recurring tooling or instruction problem, you may record at most 2 notes per task with `python3 .opencode/scripts/ateam.py feedback note` (load `@feedback-recording` first). Do not do this for ordinary bugs.
 - Never claim success you have not seen in a command output.
 - Reply in 3 to 6 lines: what you changed, what you ran to verify, what remains fragile.

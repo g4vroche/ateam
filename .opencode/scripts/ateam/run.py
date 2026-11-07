@@ -192,6 +192,7 @@ class Driver:
 
     def role(self, agent: str, prompt: str, timeout: int, phase: str, task: str | None = None, session: str | None = None, env_extra: dict | None = None) -> OC.RoleResult:
         n = len(self.record["roles"]) + 1
+        env_extra = {"ATEAM_RUN_ID": self.run_id, "ATEAM_AGENT": agent, **({"ATEAM_TASK": task} if task else {}), **(env_extra or {})}
         log = self.rundir / f"{n:03d}-{phase}-{task or 'project'}.jsonl"
         res = OC.run_role(
             self.root, self.binary, agent, prompt, timeout, log, standalone=self.cfg["standalone"], session=session,
@@ -367,6 +368,8 @@ class Driver:
         st = self.tstate(tid)
         fp = B.write_failure_summary(self.pdir, tid, gate, reason, st["history"])
         self.say(f"{tid}: failed ({reason}) -> {dec['decision']}")
+        if dec["repeat"] >= 2:
+            self.signal("repeated_gate_failure", tid, f"{reason} repeated {dec['repeat']} times", signature=dec["signature"])
         if dec["decision"] == "retry":
             return
         self.trec(tid)["outcome"] = dec["decision"]

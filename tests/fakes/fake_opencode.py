@@ -35,7 +35,7 @@ def main():
     counters_path = state / "counters.json"
     counters = json.loads(counters_path.read_text()) if counters_path.exists() else {}
     with open(state / "calls.jsonl", "a") as fh:
-        fh.write(json.dumps({"agent": agent, "session": session, "prompt": prompt, "cwd": os.getcwd(), "pwd": os.environ.get("PWD"), "pid": os.getpid(), "allow_quality_set": os.environ.get("ATEAM_ALLOW_QUALITY_SET")}) + "\n")
+        fh.write(json.dumps({"agent": agent, "session": session, "prompt": prompt, "cwd": os.getcwd(), "pwd": os.environ.get("PWD"), "pid": os.getpid(), "allow_quality_set": os.environ.get("ATEAM_ALLOW_QUALITY_SET"), "ateam_env": {k: os.environ.get(k) for k in ("ATEAM_RUN_ID", "ATEAM_TASK", "ATEAM_AGENT")}}) + "\n")
     rule = None
     for i, r in enumerate(script["rules"]):
         if r.get("agent") not in (None, agent):

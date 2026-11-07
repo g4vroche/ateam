@@ -37,6 +37,8 @@ PERMISSION_CONTRACT: list[tuple[str, str, str, str]] = [
     ("coder", "shell", f"{ATEAM} quality all", "allow"),
     ("coder", "subagent", "coder", "deny"),
     ("coder", "shell", f"{ATEAM} feedback note --category x", "allow"),
+    ("coder", "shell", f"{ATEAM} knowledge note x --source y", "allow"),
+    ("coder", "shell", f"{ATEAM} feedback mark FB-000001 addressed", "deny"),
     ("coder", "shell", "python3 ./.opencode/scripts/ateam.py work complete demo TASK-001", "deny"),
     ("coder", "shell", "cd . && python .opencode/scripts/ateam.py work gate demo TASK-001", "deny"),
     ("coder", "shell", "pytest -q", "allow"),
