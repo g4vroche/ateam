@@ -668,7 +668,37 @@ def cmd_status(args) -> int:
     return 0
 
 
+def wait_state(root: Path, project: str | None) -> dict:
+    run = latest_run(root, project)
+    if run is None:
+        return {"state": "none"}
+    info = {k: run.get(k) for k in ("id", "project", "status", "completed", "total", "exit_code", "escalation")}
+    st = str(run.get("status"))
+    info["state"] = "running" if st == "running" else "finished"
+    return info
+
+
+def cmd_wait(args) -> int:
+    """Block until the latest run (of a project) finishes or the timeout passes. One JSON line.
+
+    Headless `opencode run` ends the session, and kills its background jobs, as soon as the agent stops talking, so the
+    chef must keep calling this (each call blocks for at most --timeout seconds) until `state` is `finished`.
+    """
+    root = find_root(args.root)
+    deadline = time.time() + max(1, args.timeout)
+    info = wait_state(root, args.project)
+    while info["state"] != "finished" and time.time() < deadline:
+        time.sleep(2)
+        info = wait_state(root, args.project)
+    print(json.dumps(info), flush=True)
+    return 0
+
+
 def register(sub) -> None:
+    w = sub.add_parser("wait", help="block until the latest run finishes (or --timeout seconds); prints one JSON line")
+    w.add_argument("project", nargs="?")
+    w.add_argument("--timeout", type=int, default=90)
+    w.set_defaults(func=cmd_wait)
     p = sub.add_parser("run", help="run a work project with the deterministic driver")
     p.add_argument("project", nargs="?")
     p.add_argument("--adhoc", metavar="REQUEST", help="fast path: one-task project from a request ('-' reads stdin), no architect")

@@ -61,6 +61,7 @@ PERMISSION_CONTRACT: list[tuple[str, str, str, str]] = [
     ("chef", "shell", f"{ATEAM} run demo", "allow"),
     ("chef", "shell", "rm -rf /", "deny"),
     ("chef", "shell", f"{ATEAM} status calc", "allow"),
+    ("chef", "shell", f"{ATEAM} wait calc --timeout 90", "allow"),
     ("chef", "shell", f"{ATEAM} work reopen demo TASK-001", "deny"),
     ("chef", "shell", f"{ATEAM} quality set test --cmd x", "deny"),
     ("chef", "subagent", "architect", "allow"),

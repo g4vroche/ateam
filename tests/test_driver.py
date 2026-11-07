@@ -408,3 +408,34 @@ def test_quality_set_env_only_for_touches_gate_tasks(tmp_path):
     assert code == 0, err
     envs = [c["allow_quality_set"] for c in fx.calls("coder")]
     assert envs == [None, "1", None]
+
+
+# --------------------------------------------------------------------- wait
+def test_wait_reports_none_running_and_finished(tmp_path, ateam):
+    import json as _json
+
+    root = tmp_path / "w"
+    (root / ".opencode").mkdir(parents=True)
+    code, out, _ = ateam(root, "wait", "--timeout", "1")
+    assert code == 0 and _json.loads(out) == {"state": "none"}
+    runs = root / ".ateam/runs"
+    runs.mkdir(parents=True)
+    (runs / "RUN-20261107-001.json").write_text(_json.dumps({"id": "RUN-20261107-001", "project": "p", "status": "running", "pid": os.getpid()}))
+    code, out, _ = ateam(root, "wait", "p", "--timeout", "1")
+    assert _json.loads(out)["state"] == "running"
+    (runs / "RUN-20261107-001.json").write_text(_json.dumps({"id": "RUN-20261107-001", "project": "p", "status": "completed", "exit_code": 0, "completed": 1, "total": 1}))
+    code, out, _ = ateam(root, "wait", "p", "--timeout", "5")
+    info = _json.loads(out)
+    assert info["state"] == "finished" and info["exit_code"] == 0 and info["completed"] == 1
+
+
+def test_wait_treats_a_dead_driver_as_finished(tmp_path, ateam):
+    import json as _json
+
+    root = tmp_path / "w"
+    (root / ".opencode").mkdir(parents=True)
+    runs = root / ".ateam/runs"
+    runs.mkdir(parents=True)
+    (runs / "RUN-20261107-001.json").write_text(_json.dumps({"id": "RUN-20261107-001", "project": "p", "status": "running", "pid": 999999999}))
+    code, out, _ = ateam(root, "wait", "p", "--timeout", "5")
+    assert _json.loads(out)["state"] == "finished"
