@@ -3,6 +3,10 @@
 .ateam/feedback/
 .ateam/knowledge/inbox/
 .ateam/knowledge/.checkpoint.json
+.ateam/knowledge/.pending.json
+.ateam/knowledge/.lock
+.ateam/knowledge/drafts/
+.ateam/knowledge/dream.log.jsonl
 .ateam/runs/
 bench/results/
 __pycache__/

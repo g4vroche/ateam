@@ -1,0 +1,8 @@
+# Copy to ~/.config/systemd/user/ and adjust WorkingDirectory. Nothing here is installed automatically.
+[Unit]
+Description=ateam Dreamer (consolidate project knowledge)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/path/to/your/project
+ExecStart=/usr/bin/env bash .opencode/scripts/dream-cron.sh

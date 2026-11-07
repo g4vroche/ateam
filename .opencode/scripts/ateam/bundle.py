@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import frontmatter as fm
 from . import gate as G
+from . import knowledge as K
 from . import schemas
 from . import work as W
 from .common import atomic_write, read_json
@@ -156,6 +157,8 @@ def coder_bundle(root: Path, project: str, task: W.Task, attempt: int, max_attem
     scope = list(task.meta.get("files") or [])
     reads = list(task.meta.get("reads") or [])
     skills = list(task.meta.get("skills") or [])
+    know, _missing = K.resolve_paths(root, list(task.meta.get("knowledge") or []))
+    reads = reads + [k for k in know if k not in reads]
     rp = report_path(pdir, task)
     paths = {
         "task": rel(root, task.path),
