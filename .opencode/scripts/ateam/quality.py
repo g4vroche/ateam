@@ -130,8 +130,8 @@ def detect(root: Path) -> dict:
             if pytest_cfg and _py_has(root, "pytest"):
                 put("test", _entry(f"{sys.executable.split('/')[-1]} -m pytest -q", "python pytest", True))
             elif has_tests_dir:
-                disco = "-s tests -t ." if (root / "tests" / "__init__.py").exists() else "-s tests"
-                put("test", _entry(f"python3 -m unittest discover {disco}", "python unittest", True))
+                # `-t .` makes `tests/` a package (needs tests/__init__.py): the strictest standard form, also found by pytest
+                put("test", _entry("python3 -m unittest discover -s tests -t .", "python unittest", True))
     # Rust
     if (root / "Cargo.toml").exists():
         have = _which("cargo")

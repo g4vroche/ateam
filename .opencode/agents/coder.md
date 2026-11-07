@@ -85,7 +85,7 @@ Input: a task file path, the reports of the tasks it depends on, a scope, option
 Work loop:
 1. Read the task. Inspect the files it lists before writing.
 2. Implement the smallest change that satisfies every acceptance criterion. Stay inside the task's `files:` scope. Follow the conventions of the surrounding code.
-3. Add or update tests for new behaviour. Never delete, skip or weaken an existing test to make something pass.
+3. Add or update tests for new behaviour. Python tests go in `tests/` with an empty `tests/__init__.py`, so that `python3 -m unittest discover -s tests -t .` and pytest both find them. Never delete, skip or weaken an existing test to make something pass.
 4. Verify with deterministic tools, never by reasoning: run the commands in the task's Verification Commands block and `python3 .opencode/scripts/ateam.py quality all --changed`. Read failures in full, find the cause and fix it.
 5. Fill only your own sections of the report file you were given: Decisions Made, Outputs for Dependent Tasks, Known Limitations. The other sections are script-generated.
 
