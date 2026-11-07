@@ -90,7 +90,22 @@ PERMISSION_CONTRACT: list[tuple[str, str, str, str]] = [
     ("skillsmith", "edit", ".ateam/proposals/PROP-001/proposal.md", "allow"),
     ("dreamer", "edit", "src/app.py", "deny"),
     ("dreamer", "edit", ".opencode/skills/x/SKILL.md", "deny"),
-    ("dreamer", "edit", ".ateam/knowledge/lessons/x.md", "allow"),
+    ("dreamer", "edit", ".ateam/knowledge/drafts/x.md", "allow"),
+    ("dreamer", "edit", ".ateam/knowledge/lessons/KNOW-0001-x.md", "deny"),
+    ("dreamer", "edit", ".ateam/knowledge/.checkpoint.json", "deny"),
+    ("dreamer", "shell", f"{ATEAM} knowledge upsert .ateam/knowledge/drafts/x.md", "allow"),
+    ("dreamer", "shell", f"{ATEAM} knowledge upsert .ateam/knowledge/drafts/x.md --confirmed-by-user", "deny"),
+    ("dreamer", "shell", f"{ATEAM} knowledge checkpoint", "deny"),
+    ("dreamer", "shell", f"{ATEAM} knowledge resolve --keep KNOW-0001", "deny"),
+    ("dreamer", "shell", f"{ATEAM} improve promote PROP-001", "deny"),
+    ("dreamer", "shell", "rm -rf /", "deny"),
+    ("dreamer", "read", ".ateam/work/demo/reports/001-x.md", "allow"),
+    ("skillsmith", "shell", f"{ATEAM} improve promote PROP-001", "deny"),
+    ("skillsmith", "shell", f"{ATEAM} improve approve PROP-001 --by me", "deny"),
+    ("skillsmith", "shell", f"{ATEAM} improve validate PROP-001", "allow"),
+    ("skillsmith", "shell", f"{ATEAM} feedback mark FB-000001 addressed", "deny"),
+    ("skillsmith", "shell", "rm -rf /", "deny"),
+    ("skillsmith", "read", ".env", "deny"),
     ("dreamer", "read", ".env", "deny"),
 ]
 
@@ -240,13 +255,17 @@ def cmd_lint(args) -> int:
         errs += [f"skills: {e}" for e in lint_skills(root)]
     if what in ("all", "work"):
         errs += lint_work(root)
+    if what in ("all", "knowledge"):
+        from . import knowledge as K
+
+        errs += [f"knowledge: {e}" for e in K.lint_store(root)]
     emit({"ok": not errs, "errors": errs}, args.json, "\n".join(errs) + ("\n" if errs else "") + ("OK" if not errs else f"FAILED: {len(errs)} error(s)"))
     return 0 if not errs else 1
 
 
 def register(sub) -> None:
     p = sub.add_parser("lint", help="verify agents, skills and work projects")
-    p.add_argument("what", nargs="?", default="all", choices=["all", "agents", "skills", "work"])
+    p.add_argument("what", nargs="?", default="all", choices=["all", "agents", "skills", "work", "knowledge"])
     p.add_argument("--resolved", help="path to a saved `opencode debug agents` JSON")
     p.add_argument("--models", action="store_true", help="check model ids via `opencode models`")
     p.add_argument("--partial", action="store_true", help="do not require every contract agent to exist")

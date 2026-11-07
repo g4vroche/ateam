@@ -1,0 +1,2 @@
+# crontab -e  (nightly at 03:30; flock inside the script prevents overlapping runs)
+30 3 * * * cd /path/to/your/project && bash .opencode/scripts/dream-cron.sh >> .ateam/knowledge/dream-cron.log 2>&1
