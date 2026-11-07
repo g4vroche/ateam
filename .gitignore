@@ -16,3 +16,4 @@ bench/results/
 bench/current-src.txt
 .pytest_cache/
 .pytest-lib/
+bench/label.txt
