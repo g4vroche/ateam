@@ -134,6 +134,7 @@ DEFAULT_CONFIG = {
     "tester": True,
     "adhoc_tester": False,
     "keep_failed_logs": True,
+    "learning_enabled": None,
     "retention": {
         "state_days": 30,
         "feedback_addressed_days": 90,
@@ -152,3 +153,12 @@ def load_config(root: Path) -> dict:
         else:
             cfg[k] = v
     return cfg
+
+
+def learning_enabled(root: Path) -> bool:
+    """SkillSmith/Dreamer lock (gate G1). An explicit config value wins; otherwise `.ateam/g1.json` decides."""
+    explicit = load_config(root).get("learning_enabled")
+    if isinstance(explicit, bool):
+        return explicit
+    g1 = read_json(ateam_dir(root) / "g1.json", None)
+    return bool(g1) and g1.get("decision") == "go"
