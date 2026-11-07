@@ -23,8 +23,20 @@ REPO = Path(__file__).resolve().parent.parent
 BENCH = REPO / "bench"
 
 
+def env_for(cwd):
+    """opencode resolves its project directory from $PWD, not from the process cwd.
+    Popen(cwd=...) alone leaves the parent's PWD in place and the agent then edits the
+    parent's directory (observed: a baseline run wrote into this repository)."""
+    return dict(os.environ, PWD=str(cwd))
+
+
 def sh(cmd, cwd, timeout=120):
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(cmd, cwd=cwd, env=env_for(cwd), capture_output=True, text=True, timeout=timeout)
+
+
+def repo_state():
+    r = subprocess.run(["git", "status", "--porcelain"], cwd=REPO, capture_output=True, text=True)
+    return r.stdout
 
 
 def main():
@@ -49,7 +61,8 @@ def main():
     prompt = request
     cmd = [args.opencode, "run", "--standalone", "--agent", args.agent, "--format", "json", "--auto", prompt]
     t0 = time.time()
-    proc = subprocess.Popen(cmd, cwd=ws, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+    before = repo_state()
+    proc = subprocess.Popen(cmd, cwd=ws, env=env_for(ws), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
     events = {"types": {}, "tools": {}, "tokens": {"input": 0, "output": 0, "cache_read": 0}, "steps": 0, "sessions": set()}
     timed_out = False
     import threading
@@ -83,6 +96,9 @@ def main():
         os.killpg(proc.pid, signal.SIGKILL)
     th.join(5)
     wall = time.time() - t0
+    leaked = repo_state() != before
+    if leaked:
+        print("ERROR: the run modified the ateam repository; result is invalid", file=sys.stderr)
 
     stats = None
     try:
@@ -107,6 +123,7 @@ def main():
         "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "wall_s": round(wall, 1),
         "timed_out": timed_out,
+        "leaked_into_repo": leaked,
         "exit_code": proc.returncode,
         "stream": {**events, "sessions": len(events["sessions"])},
         "stats": stats,
