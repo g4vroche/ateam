@@ -14,9 +14,6 @@ from . import schemas
 from .common import emit, find_root, load_config
 from .work import validate_project, work_root
 
-# Hidden French aliases kept for one release: alias -> canonical agent.
-ALIASES = {"architecte": "architect", "dev": "coder", "testeur": "tester"}
-
 REQUIRED_AGENTS = ("chef", "architect", "coder", "tech-lead", "tester")
 OPTIONAL_AGENTS = ("skillsmith", "dreamer")
 
@@ -65,7 +62,6 @@ PERMISSION_CONTRACT: list[tuple[str, str, str, str]] = [
     ("chef", "shell", f"{ATEAM} work reopen demo TASK-001", "deny"),
     ("chef", "shell", f"{ATEAM} quality set test --cmd x", "deny"),
     ("chef", "subagent", "architect", "allow"),
-    ("chef", "subagent", "architecte", "deny"),
     ("chef", "skill", "manual-orchestration", "allow"),
     ("architect", "edit", "src/app.py", "deny"),
     ("architect", "edit", ".ateam/work/demo/plan.md", "allow"),
@@ -179,20 +175,7 @@ def lint_agents(resolved: list[dict] | None, check_models: bool = False, strict_
         got = evaluate(a["permissions"], action, resource)
         if got != expected:
             errs.append(f"{agent}: {action} {resource!r} is '{got}', contract requires '{expected}'")
-    for alias, target in ALIASES.items():
-        a, t = by_id.get(alias), by_id.get(target)
-        if a is None:
-            continue
-        if t is None:
-            if strict_required:
-                errs.append(f"alias {alias} points to missing agent {target}")
-            continue
-        if a.get("hidden") is not True:
-            errs.append(f"alias {alias} must be hidden")
-        if _norm_perms(a["permissions"]) != _norm_perms(t["permissions"]):
-            errs.append(f"alias {alias} permissions differ from {target}")
-        if a.get("model") != t.get("model"):
-            errs.append(f"alias {alias} model differs from {target}")
+    # French aliases (architecte, dev, testeur) have been removed; nothing to check here.
     for aid, a in by_id.items():
         if a.get("mode") == "primary" and not a.get("hidden") and aid not in ("chef", "build", "plan", "compaction", "summary", "title"):
             errs.append(f"unexpected primary agent: {aid}")

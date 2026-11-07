@@ -80,10 +80,15 @@ def test_models_of_existing_agents_are_unchanged(resolved):
 
 @needs_opencode
 def test_new_agents_are_exactly_the_reviewed_set(resolved):
+    intended = json.loads((GOLDEN / "intended-changes.json").read_text())
     v0 = {a["name"] for a in json.loads((GOLDEN / "agents-v0.json").read_text())}
     builtin = {"Build", "Compaction", "Explore", "General", "Plan", "Summary", "Title"}
+    removed = set(intended.get("removed_agents", []))
+    # agents in v0 that were removed should not be present
+    assert removed & set(resolved) == set(), f"removed agents still present: {removed & set(resolved)}"
+    # new agents (not in v0, not built-in, not removed) must be exactly the reviewed set
     new = set(resolved) - v0 - builtin
-    assert new == set(json.loads((GOLDEN / "intended-changes.json").read_text())["new_agents"])
+    assert new == set(intended["new_agents"])
 
 
 @needs_opencode
