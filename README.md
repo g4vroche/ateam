@@ -121,7 +121,32 @@ Scenarios A–G (quality bootstrap, gate hardening, resume and recovery, feedbac
 
 ## Benchmark
 
-`bench/run_bench.py --variant baseline|current` runs the same request (`bench/tasks/todo-cli`) through the original boilerplate (`bench/baseline-v0/`) and the current one in throwaway git workspaces, then runs hidden acceptance checks. `bench/compare.py` prints medians. Runs must be sequential (one inference server). Results are in `bench/results/` (git-ignored); see the section below for the latest numbers.
+`bench/run_bench.py --variant baseline|current` runs the same request (`bench/tasks/todo-cli`: a small CLI with 17 hidden acceptance checks) through the original boilerplate (`bench/baseline-v0/`) and the current one in throwaway git workspaces, with the real models, one run at a time (the inference server is single-lane). `bench/compare.py --label final --runs` prints medians and deltas. Raw results are in `bench/results/` (git-ignored); `.ateam/g1.json` records the evaluation.
+
+Final benchmark, 3 runs per variant (medians):
+
+| | wall | input tokens | output tokens | steps | hidden checks passed | timeouts (40 min cap) |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline-v0 | 2400 s (capped) | 232k | 122k | 103 | 17/17 in every run | 3 of 3 |
+| current | 344 s (331, 344, 756) | 79k | 17k | 25 | 17/17 in every run | 0 of 3 |
+| delta | -86 % | -66 % | -86 % | -76 % | no change | |
+
+Read these numbers carefully:
+
+- The baseline never terminated inside the 40-minute cap in any run (its LLM-driven review and test loop keeps going after the code is already complete and correct). Its wall time, tokens and steps are therefore lower bounds, and the true gain is at least this large. The current system always finished.
+- One task, one model setup, N = 3: this shows direction and size, not a statistical result. Run-to-run spread of the current system is large (331 s to 756 s).
+- Token figures come from `opencode stats` for the workspace and include the driver's role sessions (coder, reviewer), not only the chef.
+- The mid-point benchmark (2 current runs of the phase 4 code) scored 16/17 hidden checks: its quality-gate detection ran `unittest discover -s tests` without `-t .`, so the coder did not make `tests/` a package and the benchmark's own `-t .` check failed. That was fixed (detection keeps `-t .`, the coder prompt names the convention) and the final runs are 17/17. One earlier current run was discarded (kept in `bench/results/invalid/`): the chef ended its turn right after starting the background driver, which killed it; the chef now polls `ateam.py wait` until the run finishes.
+
+## Gate G1 status
+
+`python3 .opencode/scripts/ateam.py g1` was evaluated on 2026-11-07 and the decision is **NO-GO** for now:
+
+- benchmark: met (gain in time and tokens, hidden-check pass rate not lower);
+- at least 5 real runs with captured events: not met (this repository has no real runs of its own; the benchmark workspaces are discarded after each run);
+- recurring feedback patterns across real runs: not met.
+
+SkillSmith and the Dreamer are installed, unit-tested with a fake model and checked once end to end with the real model (`pytest -m llm`), but they stay locked until you have used the team on real work and `ateam.py g1` reports `go`. To experiment earlier, set `"learning_enabled": true` in `.ateam/config.json`.
 
 ## Security
 
