@@ -328,16 +328,22 @@ def cmd_detect(args) -> int:
     return 1 if missing else 0
 
 
+def run_all(root: Path, profile: list[str] | None = None, changed: bool = False, log_dir: Path | None = None, timeout: int | None = None) -> tuple[str, list[dict]]:
+    """`quality all`: run the profile plus every configured or detected category; only the profile counts."""
+    profile = list(profile) if profile is not None else list(DEFAULT_PROFILE)
+    eff = effective(root)
+    to_run = [c for c in CATEGORIES if c in profile or eff[c]["status"] in ("configured", "detected")]
+    results = [run_check(root, c, changed, log_dir, timeout) for c in to_run]
+    return summarize(results, set(profile)), results
+
+
 def cmd_check(args) -> int:
     root = find_root(args.root)
     cats = args.category
     log_dir = ateam_dir(root) / "runs" / "quality-logs"
     if cats == "all":
         profile = [c for c in (args.profile or ",".join(DEFAULT_PROFILE)).split(",") if c]
-        eff = effective(root)
-        to_run = [c for c in CATEGORIES if c in profile or eff[c]["status"] in ("configured", "detected")]
-        results = [run_check(root, c, args.changed, log_dir) for c in to_run]
-        status = summarize(results, set(profile))
+        status, results = run_all(root, profile, args.changed, log_dir)
         code = EXIT[status] if status != "passed" else 0
     else:
         results = [run_check(root, cats, args.changed, log_dir)]

@@ -225,6 +225,10 @@ def validate_project(root: Path, project: str) -> tuple[list[str], list[str]]:
     if cyc:
         errors.append("dependency cycle: " + " -> ".join(cyc))
     warnings.extend(_quality_gap_warnings(root, good))
+    from . import lifecycle
+
+    for tid in lifecycle.completed_modified(root, project):
+        errors.append(f"{tid}: completed task definition was modified after completion (completed tasks are immutable)")
     # manifest consistency
     mpath = pdir / "manifest.json"
     if mpath.exists():
@@ -433,6 +437,56 @@ def cmd_adhoc(args) -> int:
     return 0
 
 
+LEGACY_FILES = {"PLAN.md": "legacy/PLAN.md", "REVUE.md": "reviews/legacy-REVUE.md", "TESTS.md": "reviews/legacy-TESTS.md"}
+
+
+def migrate_legacy(root: Path, project: str, move: bool = False) -> dict:
+    """Archive the v0 `equipe/` folder into a work project. No tasks are invented: the architect re-plans from legacy/PLAN.md."""
+    import shutil
+
+    src = root / "equipe"
+    if not src.is_dir():
+        die(f"{src} does not exist; nothing to migrate")
+    pdir = project_dir(root, project)
+    if pdir.exists() and any(pdir.iterdir()):
+        die(f"{pdir} already exists")
+    for sub in ("tasks", "reports", "reviews", "state", "legacy"):
+        (pdir / sub).mkdir(parents=True, exist_ok=True)
+    copied = []
+    for name, dst in LEGACY_FILES.items():
+        if (src / name).exists():
+            shutil.copy2(src / name, pdir / dst)
+            copied.append(dst)
+    for extra in ("etapes", "essais"):
+        if (src / extra).is_dir():
+            shutil.copytree(src / extra, pdir / "legacy" / extra, dirs_exist_ok=True)
+            copied.append(f"legacy/{extra}/")
+    plan_src = (pdir / "legacy" / "PLAN.md")
+    objective = "Continue the work described in legacy/PLAN.md."
+    if plan_src.exists():
+        paras = [p.strip() for p in plan_src.read_text(encoding="utf-8", errors="replace").split("\n\n") if p.strip() and not p.strip().startswith("#")]
+        if paras:
+            objective = paras[0][:500]
+    atomic_write(
+        pdir / "plan.md",
+        f"# Objective\n{objective}\n\n# Scope and Non-Goals\nMigrated from `equipe/`; see legacy/PLAN.md. Re-scope before executing.\n\n"
+        "# Architectural Decisions\nSee legacy/PLAN.md.\n\n# Shared Constraints\nSee legacy/PLAN.md.\n\n"
+        "# Task Graph\nNo tasks yet: run the architect to decompose the remaining work.\n\n"
+        "# Acceptance Criteria\nSee legacy/PLAN.md.\n\n# Progress\n0/0 completed (migrated).\n",
+    )
+    write_json(pdir / "manifest.json", {"project": project, "tasks": []})
+    if move:
+        shutil.move(str(src), str(root / "equipe.migrated"))
+    return {"project": project, "dir": str(pdir), "copied": copied, "moved_to": "equipe.migrated" if move else None}
+
+
+def cmd_migrate_legacy(args) -> int:
+    root = find_root(args.root)
+    res = migrate_legacy(root, args.project, args.move)
+    emit(res, args.json, f"migrated {len(res['copied'])} item(s) into {res['dir']}; run the architect to create tasks")
+    return 0
+
+
 def cmd_sync(args) -> int:
     root = find_root(args.root)
     m = sync_manifest(root, args.project)
@@ -536,6 +590,9 @@ def register(sub) -> None:
     sp = add("adhoc", cmd_adhoc, "fast path: create a one-task project from a request (use '-' to read stdin)")
     sp.add_argument("request")
     sp.add_argument("--project")
+    sp = add("migrate-legacy", cmd_migrate_legacy, "archive the v0 equipe/ folder into a work project")
+    sp.add_argument("project", nargs="?", default="legacy")
+    sp.add_argument("--move", action="store_true", help="rename equipe/ to equipe.migrated afterwards")
     sp = add("sync", cmd_sync, "rebuild manifest.json from task files")
     sp.add_argument("project")
     sp = add("validate", cmd_validate, "validate plan, tasks, manifest, graph")
@@ -549,3 +606,6 @@ def register(sub) -> None:
     from . import gate
 
     gate.add_commands(ws, add)
+    from . import lifecycle
+
+    lifecycle.add_commands(ws, add)

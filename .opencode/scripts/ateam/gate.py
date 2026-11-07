@@ -92,8 +92,8 @@ def list_worktree_files(root: Path) -> list[str]:
     return sorted(f for f in files if not f.startswith((".ateam/", ".opencode/")) and not any(p in IGNORE_DIRS for p in Path(f).parts))
 
 
-def fingerprint(root: Path) -> str:
-    h = hashlib.sha256()
+def fingerprint_map(root: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
     for rel in list_worktree_files(root):
         p = root / rel
         try:
@@ -102,9 +102,43 @@ def fingerprint(root: Path) -> str:
             continue  # deleted tracked file
         if not p.is_file():
             continue
-        digest = f"big:{st.st_size}" if st.st_size > BIG_FILE else sha256_file(p)
-        h.update(f"{rel}\0{digest}\n".encode())
+        out[rel] = f"big:{st.st_size}" if st.st_size > BIG_FILE else sha256_file(p)
+    return out
+
+
+def digest_map(m: dict[str, str]) -> str:
+    h = hashlib.sha256()
+    for rel in sorted(m):
+        h.update(f"{rel}\0{m[rel]}\n".encode())
     return h.hexdigest()
+
+
+def fingerprint(root: Path) -> str:
+    return digest_map(fingerprint_map(root))
+
+
+def diff_maps(before: dict[str, str], after: dict[str, str]) -> list[tuple[str, str]]:
+    """[(A|M|D, path)] between two fingerprint maps."""
+    out = []
+    for rel in sorted(set(before) | set(after)):
+        if rel not in before:
+            out.append(("A", rel))
+        elif rel not in after:
+            out.append(("D", rel))
+        elif before[rel] != after[rel]:
+            out.append(("M", rel))
+    return out
+
+
+def baseline_path(pdir: Path, tid: str) -> Path:
+    return pdir / "state" / f"{tid}.baseline.json"
+
+
+def changed_since_start(root: Path, pdir: Path, tid: str) -> list[tuple[str, str]]:
+    base = read_json(baseline_path(pdir, tid), None)
+    if base is None:
+        return []
+    return diff_maps(base, fingerprint_map(root))
 
 
 # -------------------------------------------------------------------- test guard
@@ -186,7 +220,10 @@ def begin_attempt(root: Path, project: str, tid: str, resume: bool = False) -> d
             st["attempts"] += 1
         st["task_hash"] = task_content_hash(t.meta, t.body)
         st["quality_hash"] = quality_hash(root)
-        st["baseline_fingerprint"] = st.get("baseline_fingerprint") or fingerprint(root)
+        if not st.get("baseline_fingerprint") or not baseline_path(pdir, tid).exists():
+            fmap = fingerprint_map(root)
+            st["baseline_fingerprint"] = digest_map(fmap)
+            write_json(baseline_path(pdir, tid), fmap)
         if st.get("test_snapshot") is None:
             st["test_snapshot"] = snapshot_tests(root)
         st["last_start"] = now_iso()
@@ -280,7 +317,7 @@ def gate_summary(result: dict) -> str:
     return "\n".join(lines)
 
 
-def check_gate_valid(root: Path, project: str, tid: str) -> tuple[bool, str]:
+def check_gate_valid(root: Path, project: str, tid: str, allow_needs_review: bool = False) -> tuple[bool, str]:
     pdir = W.require_project(root, project)
     g = read_json(gate_path(pdir, tid), None)
     if not g:
@@ -289,7 +326,7 @@ def check_gate_valid(root: Path, project: str, tid: str) -> tuple[bool, str]:
     t = W.task_index(W.load_tasks(pdir)).get(tid)
     if t is None:
         return False, f"unknown task {tid}"
-    if g["overall"] != "passed":
+    if g["overall"] != "passed" and not (allow_needs_review and g["overall"] == "needs_review"):
         return False, f"gate overall is '{g['overall']}', not 'passed'"
     if g["attempt"] != st["attempts"]:
         return False, "gate belongs to a different attempt"
@@ -304,8 +341,10 @@ def check_gate_valid(root: Path, project: str, tid: str) -> tuple[bool, str]:
     return True, "ok"
 
 
-def complete_task(root: Path, project: str, tid: str, force_reviewed: bool = False) -> None:
-    ok, why = check_gate_valid(root, project, tid)
+def complete_task(root: Path, project: str, tid: str, reviewed: bool = False) -> None:
+    """Complete only with a current passed gate. `reviewed` additionally accepts a `needs_review` gate
+    (test guard / no-change findings) that a reviewer explicitly approved; failed and not_executed never pass."""
+    ok, why = check_gate_valid(root, project, tid, allow_needs_review=reviewed)
     pdir = W.require_project(root, project)
     if not ok:
         die(f"cannot complete {tid}: {why}")
@@ -320,7 +359,8 @@ def complete_task(root: Path, project: str, tid: str, force_reviewed: bool = Fal
         except fm.FrontmatterError:
             pass
     st = load_state(pdir, tid)
-    st["history"].append({"attempt": st["attempts"], "result": "completed", "at": now_iso()})
+    st["history"].append({"attempt": st["attempts"], "result": "completed", "at": now_iso(), "reviewed_override": bool(reviewed)})
+    st["completed_hash"] = task_content_hash(task.meta, task.body)
     save_state(pdir, tid, st)
     W.set_task_status(root, project, tid, "completed")
 
@@ -345,7 +385,7 @@ def cmd_gate(args) -> int:
 
 def cmd_complete(args) -> int:
     root = find_root(args.root)
-    complete_task(root, args.project, args.task)
+    complete_task(root, args.project, args.task, reviewed=args.reviewed)
     emit({"task": args.task, "status": "completed"}, args.json, f"{args.task} completed")
     return 0
 
@@ -369,6 +409,7 @@ def add_commands(ws, add) -> None:
     sp = add("complete", cmd_complete, "mark completed; requires a current, passed gate")
     sp.add_argument("project")
     sp.add_argument("task")
+    sp.add_argument("--reviewed", action="store_true", help="accept a needs_review gate that a reviewer approved (driver only)")
     sp = add("gate-valid", cmd_gate_valid, "check that the stored gate is still valid for the current tree")
     sp.add_argument("project")
     sp.add_argument("task")

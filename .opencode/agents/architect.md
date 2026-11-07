@@ -48,6 +48,12 @@ permissions:
     resource: "python3 .opencode/scripts/ateam.py work graph *"
     effect: allow
   - action: shell
+    resource: "python3 .opencode/scripts/ateam.py work split *"
+    effect: allow
+  - action: shell
+    resource: "python3 .opencode/scripts/ateam.py work status *"
+    effect: allow
+  - action: shell
     resource: "python3 .opencode/scripts/ateam.py quality detect*"
     effect: allow
   - action: webfetch
@@ -87,5 +93,5 @@ Rules:
 - Order tasks so dependencies come first. Do not add dependencies the later task does not need.
 - Set `skills:` only for skills the task needs, `review: required` only for risky tasks (security, migrations, public API, concurrency, gate or config changes), and `files:` to the scope the coder may touch.
 - Task files are the only interface to the coder: put decisions and interfaces it needs into the task or into a doc listed in `reads:`.
-- Re-scoping: when asked to re-plan, change only pending or failed tasks. Never edit a completed task.
+- Re-scoping (when asked after an escalation): retire the failing task with `python3 .opencode/scripts/ateam.py work split <project> <TASK>`, read the failure history it prints, then create smaller replacement tasks with `work new-task`, rewire the dependents, run `work sync` and `work validate`. Change only pending or failed tasks: completed tasks are immutable and `work split` refuses them. Make the replacements different from what failed, not a copy.
 - Write all artifacts in English. Keep the final reply short: project id, task count, one line per task, and any unresolved validation errors.
