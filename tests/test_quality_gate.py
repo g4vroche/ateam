@@ -242,6 +242,21 @@ def test_run_command_timeout_is_failed(tmp_path):
     assert r["status"] == "failed" and "timeout" in r["reason"]
 
 
+def test_timeout_kills_grandchildren_and_returns_promptly(tmp_path):
+    import time
+
+    t0 = time.time()
+    # a background grandchild keeps the output pipe open; it must not block the gate
+    r = Q.run_command(tmp_path, "slow", "sleep 30 & sleep 30", 1)
+    assert r["status"] == "failed" and "timeout" in r["reason"]
+    assert time.time() - t0 < 10
+
+
+def test_commands_see_pwd_equal_to_project_root(tmp_path):
+    r = Q.run_command(tmp_path, "pwdcheck", 'test "$PWD" = "$(pwd)"', 10)
+    assert r["status"] == "passed"
+
+
 def test_zero_tests_pattern_does_not_match_ten_tests():
     assert not Q.ZERO_TESTS.search("10 tests passed")
     assert Q.ZERO_TESTS.search("Ran 0 tests in 0.000s")
@@ -330,3 +345,31 @@ def test_fingerprint_ignores_ateam_and_changes_with_content(ws):
     assert G.fingerprint(ws) == fp1
     (ws / "calc.py").write_text("changed")
     assert G.fingerprint(ws) != fp1
+
+
+def test_changed_mode_uses_changed_cmd_and_filters_by_extension(ws, ateam):
+    env = {"ATEAM_ALLOW_QUALITY_SET": "1"}
+    code, _, _ = ateam(
+        ws, "quality", "set", "lint", "--cmd", "false", "--changed-cmd", "echo LINT {files}", "--exts", ".py", env=env
+    )
+    assert code == 0
+    # nothing changed: full run would fail (`false`), changed mode has nothing to check
+    code, out, _ = ateam(ws, "quality", "lint", "--changed", "--json")
+    res = json.loads(out)["results"][0]
+    assert code == 3 and res["status"] == "not_applicable" and res["scope"] == "changed"
+    # a changed .py file is passed to the changed command; a .txt file is filtered out
+    (ws / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+    (ws / "notes.txt").write_text("x")
+    code, out, _ = ateam(ws, "quality", "lint", "--changed", "--json")
+    res = json.loads(out)["results"][0]
+    assert code == 0 and res["scope"] == "changed"
+    assert "calc.py" in res["command"] and "notes.txt" not in res["command"]
+    # without --changed the full command runs (and fails)
+    assert ateam(ws, "quality", "lint")[0] == 1
+
+
+def test_changed_mode_without_support_records_full_run(ws, ateam):
+    (ws / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+    code, out, _ = ateam(ws, "quality", "test", "--changed", "--json")
+    res = json.loads(out)["results"][0]
+    assert code == 0 and res["scope"] == "full"

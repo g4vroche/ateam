@@ -62,3 +62,10 @@ inside an agent's background shell is exercised by the optional `-m llm` end-to-
 ## Baseline benchmark
 
 Harness: `bench/run_bench.py` + `bench/compare.py`. Results are written to `bench/results/` (git-ignored).
+
+## S9 — `opencode run` takes its project directory from `$PWD`, not from the process cwd
+`subprocess.Popen(..., cwd=X)` alone is not enough: with the parent's `PWD` inherited, `opencode session export`
+reports `location.directory` = the parent's directory (verified: cwd only → repo root; cwd + `PWD=X` → X).
+Consequence: the first baseline benchmark run wrote `equipe/PLAN.md` into this repository.
+Rule for every spawn of `opencode` (bench harness, Phase 4 driver): pass `env=dict(os.environ, PWD=str(cwd))`
+and verify `location.directory` after the run. Quality commands also get `PWD=<root>`.

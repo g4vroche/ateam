@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -246,16 +247,30 @@ def run_command(root: Path, check_id: str, cmd: str, timeout: int, log_dir: Path
 
 def _exec(root: Path, base: dict, cmd: str, timeout: int, log_dir: Path | None, scope: str, expect_tests: bool) -> dict:
     t0 = time.time()
-    env = dict(os.environ, CI="1", NO_COLOR="1", PYTHONDONTWRITEBYTECODE="1")
+    # PWD must follow cwd: some tools (opencode among them) resolve the directory from $PWD.
+    env = dict(os.environ, CI="1", NO_COLOR="1", PYTHONDONTWRITEBYTECODE="1", PWD=str(root))
+    # Own process group so a timeout kills grandchildren too (npm/pytest workers, servers),
+    # which would otherwise keep the output pipes open and block the gate.
+    proc = subprocess.Popen(
+        cmd, shell=True, cwd=root, env=env, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
+    )
     try:
-        p = subprocess.run(cmd, shell=True, cwd=root, capture_output=True, text=True, timeout=timeout, env=env, stdin=subprocess.DEVNULL)
-        out = (p.stdout or "") + (p.stderr or "")
-        code = p.returncode
+        out, _ = proc.communicate(timeout=timeout)
+        code = proc.returncode
         timed_out = False
-    except subprocess.TimeoutExpired as exc:
-        out = ((exc.stdout or b"").decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")) + ((exc.stderr or b"").decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or ""))
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            out, _ = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            out = ""
         code = -1
         timed_out = True
+    out = out or ""
     dur = round(time.time() - t0, 2)
     res = {**base, "command": cmd, "exit_code": code, "duration_s": dur, "scope": scope}
     log = None
