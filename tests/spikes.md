@@ -63,6 +63,15 @@ inside an agent's background shell is exercised by the optional `-m llm` end-to-
 
 Harness: `bench/run_bench.py` + `bench/compare.py`. Results are written to `bench/results/` (git-ignored).
 
+## S10 - Roles as child sessions of the chef (2026-11-08)
+
+`opencode api session.create` accepts `parentID`, `agent`, `title` and `location`. `opencode run -s <that id>`
+without `--standalone` reuses the pre-created session on the background service, keeps `parentID`, and still
+streams `--format json` events; the child does not appear in `session list` (root sessions only), like a native
+subagent. No environment variable gives a shell the id of its session: the driver finds the parent through
+`session.active` + `session.get` (agent `chef`, no parent, same directory). On the shared service killing the client
+does not stop the session, so the driver calls `session.interrupt` on timeout or interruption.
+
 ## S9 — `opencode run` takes its project directory from `$PWD`, not from the process cwd
 `subprocess.Popen(..., cwd=X)` alone is not enough: with the parent's `PWD` inherited, `opencode session export`
 reports `location.directory` = the parent's directory (verified: cwd only → repo root; cwd + `PWD=X` → X).

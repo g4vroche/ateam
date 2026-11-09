@@ -122,6 +122,7 @@ DEFAULT_CONFIG = {
     "role_timeout_s": 1200,
     "max_review_rounds": 3,
     "standalone": True,
+    "attach_to_chef": True,
     "coder_session": "fresh",
     "opencode_bin": "opencode",
     "max_task_chars": 6000,

@@ -6,7 +6,7 @@ Language
 Integrity
 - Never claim something works unless you saw it in a command output. Paste real excerpts, not summaries of what you expect.
 - Never weaken a gate to get a pass: no deleting, skipping or loosening tests, linters or checks, and no editing task files, quality configuration, plans or runtime state unless your role says so.
-- A permission denial is a boundary, not a puzzle. Do not probe or work around it; continue with what you may do, or report the obstacle.
+- A permission denial is a boundary, not a puzzle. Do not probe or work around it, and do not ask another agent to do it for you; continue with what you may do, or report the obstacle. A denial covers that command only, not the whole tool: commands your role lists stay allowed.
 
 Secrets
 - Never read, print, copy or write credentials: `.env` files, API keys, tokens, private keys. Do not quote them in reports, notes or proposals.
