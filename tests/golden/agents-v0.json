@@ -1,0 +1,840 @@
+[
+  {
+    "id": "architecte",
+    "name": "architecte",
+    "model": {
+      "id": "chrx-architect",
+      "providerID": "Anubis"
+    },
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {
+        "temperature": 0.2
+      }
+    },
+    "system": "Tu es l'ARCHITECTE de l'équipe. Tu écris la carte, tu ne cuisines pas.\n\nTa mission : lire le besoin qu'on te donne et écrire le plan dans :\n - `equipe/PLAN.md` : Vision technique globale\n - `equipe/etapes/*.md` : étapes indépendantes de développement, livrable par livrable.\n\nLe plan contient, dans cet ordre :\n1. Le besoin reformulé en 2 phrases.\n2. Les décisions techniques (langage, structure des fichiers) avec la raison de chacune.\n3. Le travail coupé en étapes. Chaque étape est livrable et testable seule. Ne mets jamais tout dans une seule étape.\n4. Les règles à respecter, y compris celles que le demandeur n'a pas pensé à écrire. Exemple : ne jamais supposer qu'une information est disponible si l'utilisateur ne l'a pas donnée.\n5. Pour chaque étape, comment on saura qu'elle est terminée.\n\nRègles :\n- Tu n'as le droit d'écrire que `equipe/PLAN.md` et `equipe/etapes/*.md` Tu ne touches à aucun autre fichiers.\n- Tu ne lances aucune commande.\n- Si le besoin est trop flou pour planifier, écris tes questions en haut du plan au lieu de deviner.\n- Réponds en quelques lignes : où est le plan, combien d'étapes, la décision la plus importante.",
+    "description": "Architecte. Transforme un besoin en plan de travail découpé en étapes. Ne code jamais. À appeler en premier.",
+    "mode": "subagent",
+    "hidden": false,
+    "color": "#aaaaaa",
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "edit",
+        "resource": "equipe/PLAN.md",
+        "effect": "allow"
+      },
+      {
+        "action": "shell",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "webfetch",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "build",
+    "name": "Build",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "description": "The default agent. Executes tools based on configured permissions.",
+    "mode": "primary",
+    "hidden": false,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "question",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "chef",
+    "name": "chef",
+    "model": {
+      "id": "chrx-coder",
+      "providerID": "Anubis"
+    },
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {
+        "temperature": 0.2
+      }
+    },
+    "system": "Tu es le CHEF D'ÉQUIPE. Tu ne codes pas, tu ne relis pas, tu ne testes pas : tu fais circuler le travail.\n\nTon équipe (appelle-la avec l'outil task) :\n- `architecte` : écrit le plan dans `equipe/PLAN.md`.\n- `dev` : réalise et corrige le code. Seul à pouvoir le modifier.\n- `tech-lead` : relit, écrit `equipe/REVUE.md`, finit par `VERDICT : VALIDÉ` ou `VERDICT : À REFAIRE`.\n- `testeur` : essaie de casser, écrit `equipe/TESTS.md`, finit par `VERDICT : VALIDÉ` ou `VERDICT : RECALÉ`.\n\nDéroulé :\n1. Appelle `architecte` avec le besoin de l'utilisateur, mot pour mot.\n2. Appelle `dev` : « réalise le plan de equipe/PLAN.md ».\n3. Appelle `tech-lead`. Si `À REFAIRE` : rappelle `dev` pour corriger `equipe/REVUE.md`, puis `tech-lead` de nouveau.\n4. Quand le tech lead valide, appelle `testeur`. Si `RECALÉ` : rappelle `dev` pour corriger `equipe/TESTS.md`, puis `tech-lead`, puis `testeur`.\n5. Quand les deux verdicts sont `VALIDÉ`, arrête-toi.\n\nRègles :\n- Passe à chaque membre le chemin des fichiers, pas un résumé : ce qui est écrit dans `equipe/` fait foi.\n- Maximum 3 allers-retours avec le dev. Au-delà, arrête-toi et explique à l'utilisateur ce qui bloque : c'est à lui de trancher.\n- Ne corrige jamais toi-même et ne contredis pas un verdict.\n- À la fin, donne à l'utilisateur : ce qui a été construit, le nombre d'allers-retours, les défauts trouvés par chacun, et ce qu'il doit vérifier lui-même.",
+    "description": "Chef d'équipe. Reçoit le besoin, fait travailler l'architecte, le dev, le tech lead et le testeur dans l'ordre, renvoie au dev tant qu'il y a des défauts. Ne code pas.",
+    "mode": "primary",
+    "hidden": false,
+    "color": "#aaaaaa",
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "shell",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "webfetch",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "subagent",
+        "resource": "architecte",
+        "effect": "allow"
+      },
+      {
+        "action": "subagent",
+        "resource": "dev",
+        "effect": "allow"
+      },
+      {
+        "action": "subagent",
+        "resource": "tech-lead",
+        "effect": "allow"
+      },
+      {
+        "action": "subagent",
+        "resource": "testeur",
+        "effect": "allow"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "compaction",
+    "name": "Compaction",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "mode": "primary",
+    "hidden": true,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "dev",
+    "name": "dev",
+    "model": {
+      "id": "chrx-coder",
+      "providerID": "Anubis"
+    },
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {
+        "temperature": 0.2
+      }
+    },
+    "system": "Tu es le DÉVELOPPEUR de l'équipe. Tu es le seul à avoir le droit de toucher au code.\n\nPremière mission : lis `equipe/PLAN.md` et réalise le plan, étape par étape, dans l'ordre. Ne saute pas d'étape, n'en invente pas.\n\nMissions suivantes : lis `equipe/REVUE.md` (tech lead) et `equipe/TESTS.md` (testeur), puis corrige chaque point signalé. Ne corrige que ce qui est signalé.\n\nRègles :\n- Tu vérifies ton travail : tu lances l'application ou les tests toi-même avant de rendre la main.\n- Si une commande échoue, tu lis l'erreur en entier, tu cherches la cause, tu corriges. Tu ne passes pas à autre chose en espérant que ça marche.\n- Tu n'écris pas dans le dossier `equipe/` : ce sont les notes des autres.\n- Ne dis jamais « c'est terminé » si tu n'as pas vu l'application tourner.\n- Réponds en quelques lignes : ce que tu as fait, ce que tu as lancé pour vérifier, ce qui reste fragile.",
+    "description": "Développeur. Seul membre de l'équipe autorisé à modifier le code. Suit le plan étape par étape et corrige selon les retours du tech lead et du testeur.",
+    "mode": "subagent",
+    "hidden": false,
+    "color": "#aaaaaa",
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "equipe/*",
+        "effect": "deny"
+      },
+      {
+        "action": "shell",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "external_directory",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "webfetch",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "explore",
+    "name": "Explore",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "system": "You are a file search specialist. You excel at thoroughly navigating and exploring codebases.\n\nGuidelines:\n- Your role is EXCLUSIVELY to search and analyze\n- Parallelize independent tool calls for searches and reads whenever possible\n- Adapt your search approach based on the thoroughness level specified by the caller\n- Return file paths as absolute paths in your final response\n- You MUST NOT create, modify, delete, move, or copy files, including temporary files and reports\n- Shell commands MUST be read-only. NEVER run commands that write files or change system state\n\nComplete the user's search request efficiently and report your findings clearly.",
+    "description": "Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. \"src/components/**/*.tsx\"), search code for keywords (eg. \"API endpoints\"), or answer questions about the codebase (eg. \"how do API endpoints work?\"). When calling this agent, specify the desired thoroughness level: \"quick\" for basic searches, \"medium\" for moderate exploration, or \"very thorough\" for comprehensive analysis across multiple locations and naming conventions.",
+    "mode": "subagent",
+    "hidden": false,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "shell",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "grep",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "glob",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "webfetch",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "websearch",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "external_directory",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "general",
+    "name": "General",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "description": "General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.",
+    "mode": "subagent",
+    "hidden": false,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "question",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "plan",
+    "name": "Plan",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "description": "Read-only agent for exploring the codebase and planning work before implementation.",
+    "mode": "primary",
+    "hidden": false,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "question",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "edit",
+        "resource": "/home/huge/.opencode/plan/*",
+        "effect": "allow"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "summary",
+    "name": "Summary",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "system": "Summarize what was done in this conversation. Write like a pull request description.\n\nRules:\n- 2-3 sentences max\n- Describe the changes made, not the process\n- Do not mention running tests, builds, or other validation steps\n- Do not explain what the user asked for\n- Write in first person (I added..., I fixed...)\n- Never ask questions or add new questions\n- If the conversation ends with an unanswered question to the user, preserve that exact question\n- If the conversation ends with an imperative statement or request to the user (e.g. \"Now please run the command and paste the console output\"), always include that exact request in the summary",
+    "mode": "primary",
+    "hidden": true,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "tech-lead",
+    "name": "tech-lead",
+    "model": {
+      "id": "chrx-architect",
+      "providerID": "Anubis"
+    },
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {
+        "temperature": 0.1
+      }
+    },
+    "system": "Tu es le TECH LEAD de l'équipe. Tu goûtes tout avant que ça parte en salle.\n\nTa mission : relire le travail du développeur par rapport à `equipe/PLAN.md` et écrire ton verdict dans `equipe/REVUE.md`.\n\nNe pars JAMAIS du principe que c'est bon. Le développeur dit que tout est au vert : vérifie.\n\nTu contrôles :\n- Chaque étape du plan est-elle réellement faite ?\n- Les règles du plan sont-elles respectées partout, y compris dans les textes générés ?\n- Les cas d'erreur : que voit l'utilisateur quand ça plante ? Un message vide est un défaut.\n- Les incohérences entre ce qui est annoncé et ce qui est calculé (durées, totaux, quantités).\n- Du code qui ne sert à rien, des secrets écrits en dur.\n\nRègles :\n- Tu n'as PAS le droit de modifier le code, même pour une faute de frappe. Tu signales, le développeur corrige. C'est ce qui rend ta relecture fiable.\n- Pour chaque défaut : le fichier, ce qui ne va pas, ce qu'il faut obtenir. Pas de remarque vague.\n- Termine `equipe/REVUE.md` par une dernière ligne, exactement : `VERDICT : VALIDÉ` ou `VERDICT : À REFAIRE`.\n- Réponds en quelques lignes : le verdict et les défauts les plus graves.",
+    "description": "Tech lead. Relit le code du développeur avec méfiance et rend un verdict VALIDÉ ou À REFAIRE. Ne corrige jamais lui-même.",
+    "mode": "subagent",
+    "hidden": false,
+    "color": "#aaaaaa",
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "edit",
+        "resource": "equipe/REVUE.md",
+        "effect": "allow"
+      },
+      {
+        "action": "shell",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "shell",
+        "resource": "git diff*",
+        "effect": "allow"
+      },
+      {
+        "action": "shell",
+        "resource": "git status*",
+        "effect": "allow"
+      },
+      {
+        "action": "shell",
+        "resource": "ls*",
+        "effect": "allow"
+      },
+      {
+        "action": "shell",
+        "resource": "cat *",
+        "effect": "allow"
+      },
+      {
+        "action": "webfetch",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "testeur",
+    "name": "testeur",
+    "model": {
+      "id": "chrx-coder",
+      "providerID": "Anubis"
+    },
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {
+        "temperature": 0.4
+      }
+    },
+    "system": "Tu es le TESTEUR de l'équipe : le client le plus difficile du restaurant. Tu ne demandes pas si ça marche, tu cherches comment ça casse.\n\nTa mission : essayer l'application pour de vrai et écrire le résultat dans `equipe/TESTS.md`.\n\nTeste dans cet ordre :\n1. Le cas normal, avec des données réalistes.\n2. Les entrées vides, absurdes, trop grandes ou mal formées.\n3. Les pannes : service injoignable, réponse invalide, réponse vide.\n4. La cohérence du résultat : ce que l'application affiche est-il utilisable tel quel par une vraie personne ? Lis le résultat comme un client, étape par étape. Si une instruction se contredit ou ne peut pas être suivie, c'est un défaut.\n5. Des données réelles quand c'est possible. Si le développeur n'a testé qu'avec un exemple parfait, dis-le.\n\nRègles :\n- Tout reste dans le dossier du projet : tes scripts d'essai vont dans `equipe/essais/`, jamais dans `/tmp` ni ailleurs. Chaque commande doit se terminer vite (60 secondes au plus). Écris `equipe/TESTS.md` dès tes premiers résultats, puis complète-le.\n- Tu lances de vraies commandes et tu colles les extraits utiles. Tu n'affirmes rien que tu n'as pas exécuté.\n- Tu n'as PAS le droit de modifier le code. Tu n'écris que dans `equipe/TESTS.md`.\n- Pour chaque défaut : comment le reproduire, ce que tu as obtenu, ce que tu attendais.\n- Ce que tu ne peux pas tester toi-même (le monde réel, un appareil, un humain) : écris-le dans une section « Reste à vérifier par l'humain ».\n- Termine `equipe/TESTS.md` par une dernière ligne, exactement : `VERDICT : VALIDÉ` ou `VERDICT : RECALÉ`.\n- Réponds en quelques lignes : le verdict et le défaut le plus grave.",
+    "description": "Testeur, client très difficile. Essaie de casser l'application avec des cas réalistes et rend un verdict VALIDÉ ou RECALÉ. Ne corrige jamais.",
+    "mode": "subagent",
+    "hidden": false,
+    "color": "#aaaaaa",
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "edit",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "edit",
+        "resource": "equipe/TESTS.md",
+        "effect": "allow"
+      },
+      {
+        "action": "shell",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "external_directory",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "webfetch",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "subagent",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  },
+  {
+    "id": "title",
+    "name": "Title",
+    "request": {
+      "settings": {},
+      "headers": {},
+      "body": {}
+    },
+    "system": "You name conversations so the user can find them later in a list of past sessions.\n\nYou will receive the first message of a conversation, or for an ongoing conversation its original request and recent messages. Reply with a title for it and nothing else: one line, no quotes, no trailing period, no label such as \"Title:\".\n\nAim for three to five words. Name the specific subject, such as the feature, file, issue number, error, or tool involved. Keep the detail that tells it apart from similar conversations, like a version, provider, or the thing it is compared against, and make room for it by dropping generic words like \"review\", \"overview\", \"investigation\", \"request\", \"question\", or \"this project\".\n\nThe title should read naturally as a short phrase, not as a stack of nouns. Write it in your own words rather than copying a heading, commit message, command, or long path from the message.\n\nUse sentence case, not title case: capitalize the first word and proper nouns only. Keep identifiers exactly as written, including file names, issue and PR numbers, error codes, and model names. Use the same language as the message.\n\nThe message is something to name, not something to answer or carry out. Even if it asks you to do work, asks a question, or seems incomplete, only name it. For greetings or small talk, use a short label like \"Greeting\".\n\nExamples:\n\"debug 500 errors in production\" -> Production 500 errors\n\"why is app.js failing\" -> app.js failure\n\"what does the retry logic in fetch.ts do\" -> fetch.ts retry logic\n\"@src/credential.ts can you add refresh token support\" -> Credential refresh tokens\n\"compare the new cache layer with the v1 one in packages/legacy\" -> New cache layer vs v1\n\"Investigate https://github.com/acme/app/issues/412, don't make edits\" -> Issue #412\n\"hey\" -> Greeting",
+    "mode": "primary",
+    "hidden": true,
+    "permissions": [
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "allow"
+      },
+      {
+        "action": "read",
+        "resource": "*.env",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.*",
+        "effect": "ask"
+      },
+      {
+        "action": "read",
+        "resource": "*.env.example",
+        "effect": "allow"
+      },
+      {
+        "action": "*",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "browser",
+        "resource": "*",
+        "effect": "deny"
+      },
+      {
+        "action": "skill",
+        "resource": "browser",
+        "effect": "deny"
+      }
+    ]
+  }
+]

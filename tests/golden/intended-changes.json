@@ -1,0 +1,149 @@
+{
+  "_doc": "Every permission difference between agents-v0.json (the original boilerplate) and the resolved agents must be listed here with a reason. The French aliases (architecte, dev, testeur) have been removed. Reviewed in Phase 8/Phase 9.",
+  "changes": [
+    {
+      "agent": "*",
+      "action": "read",
+      "resource": "*.env*",
+      "from": "ask",
+      "to": "deny",
+      "reason": "`opencode run --auto` approves `ask`, so unattended runs would read secrets. .env files are denied; .env.example stays readable."
+    },
+    {
+      "agent": "*",
+      "action": "skill",
+      "resource": "*",
+      "from": "allow",
+      "to": "deny",
+      "reason": "Per-agent skill allowlists: only the skills an agent needs are advertised to it."
+    },
+    {
+      "agent": "chef",
+      "action": "shell",
+      "resource": "*ateam.py*",
+      "from": "deny",
+      "to": "allow",
+      "reason": "Chef starts the deterministic driver (run, status) and keeps the documented fallback commands (work next/start/gate/fail/complete) for when the driver cannot start. work validate is read-only: the chef checks the architect's project with it (a denied validate once led a chef to believe it had no shell and to bypass the driver)."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "architect",
+      "from": "deny",
+      "to": "allow",
+      "reason": "English agent ids replace the French ones."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "coder",
+      "from": "deny",
+      "to": "allow",
+      "reason": "English agent ids replace the French ones."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "tester",
+      "from": "deny",
+      "to": "allow",
+      "reason": "English agent ids replace the French ones."
+    },
+    {
+      "agent": "tech-lead",
+      "action": "edit",
+      "resource": ".ateam/work/*",
+      "from": "deny",
+      "to": "allow",
+      "reason": "The reviewer writes review files under .ateam/work/*/reviews/ (replaces equipe/REVUE.md)."
+    },
+    {
+      "agent": "tech-lead",
+      "action": "edit",
+      "resource": "equipe/*",
+      "from": "allow",
+      "to": "deny",
+      "reason": "Legacy equipe/ replaced by .ateam/work/."
+    },
+    {
+      "agent": "tech-lead",
+      "action": "shell",
+      "resource": "git log*",
+      "from": "deny",
+      "to": "allow",
+      "reason": "Read-only history for reviewing diffs."
+    },
+    {
+      "agent": "tech-lead",
+      "action": "shell",
+      "resource": "git show*",
+      "from": "deny",
+      "to": "allow",
+      "reason": "Read-only history for reviewing diffs."
+    },
+    {
+      "agent": "architecte",
+      "action": "*",
+      "resource": "*",
+      "from": "present",
+      "to": "missing",
+      "reason": "French alias architecte has been removed; the architect English agent is the canonical entry point."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "architecte",
+      "from": "allow",
+      "to": "deny",
+      "reason": "architecte removed; chef delegates to architect (English)."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "dev",
+      "from": "allow",
+      "to": "deny",
+      "reason": "dev (alias for coder) removed; chef delegates to coder (English)."
+    },
+    {
+      "agent": "chef",
+      "action": "subagent",
+      "resource": "testeur",
+      "from": "allow",
+      "to": "deny",
+      "reason": "testeur (alias for tester) removed; chef delegates to tester (English)."
+    },
+    {
+      "agent": "dev",
+      "action": "*",
+      "resource": "*",
+      "from": "present",
+      "to": "missing",
+      "reason": "French alias dev has been removed; coder is the canonical agent."
+    },
+    {
+      "agent": "testeur",
+      "action": "*",
+      "resource": "*",
+      "from": "present",
+      "to": "missing",
+      "reason": "French alias testeur has been removed; tester is the canonical agent."
+    }
+  ],
+  "new_agents": [
+    "architect",
+    "coder",
+    "tester",
+    "skillsmith",
+    "dreamer"
+  ],
+  "unchanged_models": {
+    "chef": "chrx-coder",
+    "tech-lead": "chrx-architect"
+  },
+  "removed_agents": [
+    "architecte",
+    "dev",
+    "testeur"
+  ]
+}
