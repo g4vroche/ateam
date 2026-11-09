@@ -84,6 +84,7 @@ class Fixture:
         self.root = tmp_path / "ws"
         self.state = tmp_path / "fake-state"
         self.script_path = tmp_path / "fake-script.json"
+        self.extra_env: dict[str, str] = {}
         root = self.root
         (root / "tests").mkdir(parents=True)
         (root / "tests" / "__init__.py").write_text("")
@@ -116,6 +117,8 @@ class Fixture:
     def env(self, **extra):
         e = dict(os.environ, FAKE_OC_SCRIPT=str(self.script_path), FAKE_OC_STATE=str(self.state), PWD=str(self.root))
         e.pop("ATEAM_ROOT", None)
+        e.pop("ATEAM_PARENT_SESSION", None)
+        e.update(self.extra_env)
         e.update(extra)
         return e
 
@@ -133,6 +136,11 @@ class Fixture:
 
     def run(self, *args):
         return self.ateam("run", "calc", *args)
+
+    def api_calls(self, op: str | None = None) -> list[dict]:
+        p = self.state / "api.jsonl"
+        rows = [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+        return [r for r in rows if op is None or r["op"] == op]
 
     def calls(self, agent: str | None = None) -> list[dict]:
         p = self.state / "calls.jsonl"

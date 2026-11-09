@@ -21,8 +21,38 @@ def emit(obj):
     print(json.dumps(obj), flush=True)
 
 
+def fake_api(argv):
+    """`opencode api` against a fake background service with one busy chef session (FAKE_OC_PARENT); calls are logged."""
+    parent = os.environ.get("FAKE_OC_PARENT")
+    if not parent:
+        print("fake opencode: no background service", file=sys.stderr)
+        return 1
+    state = Path(os.environ["FAKE_OC_STATE"])
+    state.mkdir(parents=True, exist_ok=True)
+    op = argv[0]
+    params = dict(argv[i + 1].split("=", 1) for i, a in enumerate(argv) if a == "--param")
+    body = json.loads(argv[argv.index("-d") + 1]) if "-d" in argv else None
+    with open(state / "api.jsonl", "a") as fh:
+        fh.write(json.dumps({"op": op, "params": params, "body": body}) + "\n")
+    if op == "session.active":
+        emit({"data": {parent: {"type": "running"}}})
+    elif op == "session.get":
+        sid = params.get("sessionID")
+        emit({"data": {"id": sid, "agent": "chef", "parentID": None, "location": {"directory": os.environ.get("PWD")}, "time": {"updated": 1}}})
+    elif op == "session.create":
+        n = sum(1 for _ in open(state / "api.jsonl"))
+        emit({"data": {"id": f"ses_child{n}", "parentID": body.get("parentID")}})
+    elif op == "session.interrupt":
+        emit({"data": True})
+    else:
+        return 1
+    return 0
+
+
 def main():
     argv = sys.argv[1:]
+    if argv and argv[0] == "api":
+        return fake_api(argv[1:])
     if not argv or argv[0] != "run":
         print("fake opencode: only `run` is supported", file=sys.stderr)
         return 2
@@ -35,7 +65,7 @@ def main():
     counters_path = state / "counters.json"
     counters = json.loads(counters_path.read_text()) if counters_path.exists() else {}
     with open(state / "calls.jsonl", "a") as fh:
-        fh.write(json.dumps({"agent": agent, "session": session, "prompt": prompt, "cwd": os.getcwd(), "pwd": os.environ.get("PWD"), "pid": os.getpid(), "allow_quality_set": os.environ.get("ATEAM_ALLOW_QUALITY_SET"), "ateam_env": {k: os.environ.get(k) for k in ("ATEAM_RUN_ID", "ATEAM_TASK", "ATEAM_AGENT")}}) + "\n")
+        fh.write(json.dumps({"agent": agent, "session": session, "standalone": "--standalone" in argv, "title": argv[argv.index("--title") + 1] if "--title" in argv else None, "prompt": prompt, "cwd": os.getcwd(), "pwd": os.environ.get("PWD"), "pid": os.getpid(), "allow_quality_set": os.environ.get("ATEAM_ALLOW_QUALITY_SET"), "ateam_env": {k: os.environ.get(k) for k in ("ATEAM_RUN_ID", "ATEAM_TASK", "ATEAM_AGENT")}}) + "\n")
     rule = None
     for i, r in enumerate(script["rules"]):
         if r.get("agent") not in (None, agent):
@@ -52,6 +82,8 @@ def main():
     rule = rule or {}
     sid = session or f"ses_fake{os.getpid()}"
     emit({"type": "step_start", "sessionID": sid, "part": {"type": "step-start"}})
+    for rel in [*(rule.get("write") or {}), *(rule.get("append") or {})]:
+        emit({"type": "tool_use", "sessionID": sid, "part": {"tool": "write", "state": {"status": "completed", "input": {"filePath": rel}}}})
     if rule.get("announce"):
         Path(rule["announce"]).write_text("started")
     if rule.get("sleep"):

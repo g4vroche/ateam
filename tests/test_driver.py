@@ -56,6 +56,29 @@ def test_roles_run_with_project_pwd(fx):
         assert c["pwd"] == str(fx.root) and os.path.realpath(c["cwd"]) == os.path.realpath(fx.root)
 
 
+def test_roles_are_standalone_without_an_active_chef_session(fx):
+    fx.script(coder_rules() + APPROVE_ALL)
+    assert fx.run()[0] == 0
+    first = fx.calls("coder")[0]
+    assert first["standalone"] and first["title"] == "TASK-001 - coder - attempt 1/3"
+    assert fx.last_run()["parent_session"] is None and fx.api_calls("session.create") == []
+
+
+def test_roles_run_as_child_sessions_of_the_active_chef(fx):
+    fx.extra_env = {"FAKE_OC_PARENT": "ses_chef"}
+    fx.script(coder_rules() + APPROVE_ALL)
+    code, _, err = fx.run()
+    assert code == 0, err
+    calls = fx.calls()
+    assert calls and all(not c["standalone"] and c["session"].startswith("ses_child") and c["title"] is None for c in calls)
+    creates = fx.api_calls("session.create")
+    assert len(creates) == len(calls) and all(c["body"]["parentID"] == "ses_chef" for c in creates)
+    assert [c["body"]["title"] for c in creates][:2] == ["TASK-001 - coder - attempt 1/3", "TASK-002 - coder - attempt 1/3"]
+    assert creates[-1]["body"]["agent"] == "tester" and creates[-1]["body"]["location"]["directory"] == str(fx.root)
+    rec = fx.last_run()
+    assert rec["parent_session"] == "ses_chef" and all(r["attached"] for r in rec["roles"])
+
+
 def test_failed_gate_retries_then_succeeds_with_failure_summary(fx):
     rules = [
         impl_rule(1, "add", "0", times=1),  # wrong implementation first
@@ -427,6 +450,28 @@ def test_wait_reports_none_running_and_finished(tmp_path, ateam):
     code, out, _ = ateam(root, "wait", "p", "--timeout", "5")
     info = _json.loads(out)
     assert info["state"] == "finished" and info["exit_code"] == 0 and info["completed"] == 1
+
+
+def test_wait_shows_the_working_role_and_interrupt_stops_the_child_session(tmp_path):
+    fx = Fixture(tmp_path)
+    fx.extra_env = {"FAKE_OC_PARENT": "ses_chef"}
+    ann = tmp_path / "started"
+    fx.script([{**impl_rule(1, "add", "a + b"), "sleep": 30, "announce": str(ann)}])
+    p = fx.popen("run", "calc")
+    fx.wait_for(ann)
+    end = time.time() + 10
+    while True:
+        info = json.loads(fx.ateam("wait", "calc", "--timeout", "1")[1])
+        if "last:" in info.get("now", "") or time.time() > end:
+            break
+    assert info["state"] == "running"
+    assert info["now"].startswith("coder on TASK-001 (attempt 1/3), ") and info["now"].endswith("last: write calc.py")
+    assert any("child sessions of ses_chef" in m for m in info["recent"])
+    assert "now: coder on TASK-001" in fx.ateam("status", "calc")[1]
+    p.send_signal(signal.SIGTERM)
+    p.communicate(timeout=30)
+    child = fx.calls("coder")[0]["session"]
+    assert [c["params"]["sessionID"] for c in fx.api_calls("session.interrupt")] == [child]
 
 
 def test_wait_treats_a_dead_driver_as_finished(tmp_path, ateam):

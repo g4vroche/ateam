@@ -40,6 +40,8 @@ EXIT_BLOCKED = 10
 EXIT_ARCHITECT = 11
 EXIT_FAILED = 12
 EXIT_INTERRUPTED = 130
+RECENT_LINES = 6
+PROGRESS_SAVE_S = 3.0
 KIND_EXIT = {
     "needs_architect": EXIT_ARCHITECT,
     "blocked": EXIT_BLOCKED,
@@ -141,15 +143,32 @@ class Driver:
             "totals": {"role_calls": 0, "tokens": {"input": 0, "output": 0, "reasoning": 0, "cache_read": 0, "cache_write": 0}, "role_s": 0.0, "gate_s": 0.0, "attempts": 0, "retries": 0},
             "escalation": None,
             "exit_code": None,
+            "parent_session": None,
+            "current": None,
+            "recent": [],
         }
         self.t0 = time.time()
+        self.parent: str | None = None
+        self._saved_at = 0.0
         self.save()
 
     # ------------------------------------------------------------------ plumbing
     def say(self, msg: str) -> None:
         print(f"[{self.run_id}] {msg}", file=self.out, flush=True)
+        self.record["recent"] = (self.record["recent"] + [msg[:200]])[-RECENT_LINES:]
+        self.save()
+
+    def attach_parent(self) -> None:
+        """Run roles as child sessions of the chef so the OpenCode UI shows them live; else stay standalone."""
+        sid = os.environ.get("ATEAM_PARENT_SESSION")
+        if not sid and self.cfg["attach_to_chef"]:
+            sid = OC.find_parent_session(self.root, self.binary)
+        self.parent = sid or None
+        self.record["parent_session"] = self.parent
+        self.say(f"roles run as child sessions of {self.parent}" if self.parent else "roles run in standalone sessions (no active chef session found)")
 
     def save(self) -> None:
+        self._saved_at = time.time()
         write_json(runs_dir(self.root) / f"{self.run_id}.json", self.record)
 
     def task(self, tid: str) -> W.Task:
@@ -192,14 +211,35 @@ class Driver:
         except Exception as exc:  # noqa: BLE001 - capture must never break the run
             self.say(f"warning: could not record signal {kind}: {exc}")
 
-    def role(self, agent: str, prompt: str, timeout: int, phase: str, task: str | None = None, session: str | None = None, env_extra: dict | None = None) -> OC.RoleResult:
+    def on_event(self, e: dict) -> None:
+        cur = self.record["current"]
+        if cur is None:
+            return
+        if e.get("sessionID"):
+            cur["session"] = e["sessionID"]
+        if e.get("type") == "step_finish":
+            cur["steps"] += 1
+        act = OC.activity(e)
+        if act:
+            cur["last"] = act
+        if act or time.time() - self._saved_at >= PROGRESS_SAVE_S:
+            self.save()
+
+    def role(self, agent: str, prompt: str, timeout: int, phase: str, task: str | None = None, session: str | None = None, env_extra: dict | None = None, label: str = "") -> OC.RoleResult:
         n = len(self.record["roles"]) + 1
         env_extra = {"ATEAM_RUN_ID": self.run_id, "ATEAM_AGENT": agent, **({"ATEAM_TASK": task} if task else {}), **(env_extra or {})}
         log = self.rundir / f"{n:03d}-{phase}-{task or 'project'}.jsonl"
-        res = OC.run_role(
-            self.root, self.binary, agent, prompt, timeout, log, standalone=self.cfg["standalone"], session=session,
-            retries=self.cfg["role_retries"], backoff_s=self.cfg["retry_backoff_s"], env_extra=env_extra,
-        )
+        title = " - ".join(x for x in (task or self.project, agent, label) if x)
+        self.record["current"] = {"agent": agent, "phase": phase, "task": task, "label": label, "since": now_iso(), "t0": time.time(), "steps": 0, "last": None, "session": session}
+        self.save()
+        try:
+            res = OC.run_role(
+                self.root, self.binary, agent, prompt, timeout, log, standalone=self.cfg["standalone"], session=session,
+                retries=self.cfg["role_retries"], backoff_s=self.cfg["retry_backoff_s"], env_extra=env_extra,
+                parent=self.parent, title=title, on_event=self.on_event,
+            )
+        finally:
+            self.record["current"] = None
         entry = {"phase": phase, "task": task, **res.summary()}
         self.record["roles"].append(entry)
         t = self.record["totals"]
@@ -241,6 +281,7 @@ class Driver:
         sp = self.pdir / "state" / "escalation.json"
         if sp.exists():
             sp.unlink()
+        self.attach_parent()
 
     def run_phases(self) -> None:
         while True:
@@ -331,7 +372,7 @@ class Driver:
         t0 = time.time()
         # Only tasks that declare touches_gate (and therefore need a review) may run `quality set`.
         env_extra = {"ATEAM_ALLOW_QUALITY_SET": "1"} if task.meta.get("touches_gate") else None
-        res = self.role("coder", bundle.prompt, self.cfg["task_timeout_s"], "coder", tid, session, env_extra)
+        res = self.role("coder", bundle.prompt, self.cfg["task_timeout_s"], "coder", tid, session, env_extra, f"attempt {attempt}/{max_attempts}")
         rec["coder_s"] = round(rec["coder_s"] + res.duration_s, 1)
         if res.session:
             self.update_state(tid, sessions=(st.get("sessions") or []) + [res.session])
@@ -385,11 +426,11 @@ class Driver:
         raise Stop(dec["decision"], tid, reason, ev, {"decision": dec})
 
     # ------------------------------------------------------------------- review
-    def run_reviewer(self, agent: str, bundle: B.Bundle, phase: str, task: str | None) -> str:
+    def run_reviewer(self, agent: str, bundle: B.Bundle, phase: str, task: str | None, label: str = "") -> str:
         """Run a verdict-producing role. One retry when no verdict can be parsed."""
         out = self.root / bundle.paths["review_file"]
         for attempt in (1, 2):
-            res = self.role(agent, bundle.prompt, self.cfg["role_timeout_s"], phase, task)
+            res = self.role(agent, bundle.prompt, self.cfg["role_timeout_s"], phase, task, label=label)
             self.check_provider(res, task, phase)
             text = out.read_text(encoding="utf-8", errors="replace") if out.exists() else ""
             verdict = B.parse_verdict(text) or B.parse_verdict(res.text)
@@ -414,7 +455,7 @@ class Driver:
         changed = G.changed_since_start(self.root, self.pdir, tid)
         bundle = B.reviewer_bundle(self.root, self.project, tid, [task], rounds, max_rounds, changed, [G.gate_path(self.pdir, tid)], needs)
         self.say(f"{tid}: review round {rounds}/{max_rounds} -> tech-lead")
-        verdict = self.run_reviewer("tech-lead", bundle, "review", tid)
+        verdict = self.run_reviewer("tech-lead", bundle, "review", tid, f"review round {rounds}/{max_rounds}")
         if verdict == "APPROVED":
             return "approved"
         if verdict == "NONE":
@@ -503,7 +544,7 @@ class Driver:
         tasks = self.tasks()
         bundle = B.reviewer_bundle(self.root, self.project, "final", tasks, rounds, max_rounds, self.run_baseline_changes(), [G.gate_path(self.pdir, t.id) for t in tasks], [])
         self.say(f"final review round {rounds}/{max_rounds} -> tech-lead")
-        verdict = self.run_reviewer("tech-lead", bundle, "review", None)
+        verdict = self.run_reviewer("tech-lead", bundle, "review", None, f"final review round {rounds}/{max_rounds}")
         if verdict == "APPROVED":
             fin["review_digest"] = self.tasks_digest()
             write_json(self.final_path(), fin)
@@ -527,7 +568,7 @@ class Driver:
         write_json(self.final_path(), fin)
         bundle = B.tester_bundle(self.root, self.project, rounds, max_rounds, self.run_baseline_changes(), self.tasks())
         self.say(f"tester round {rounds}/{max_rounds} -> tester")
-        verdict = self.run_reviewer("tester", bundle, "tester", None)
+        verdict = self.run_reviewer("tester", bundle, "tester", None, f"test round {rounds}/{max_rounds}")
         if verdict == "APPROVED":
             fin["tester_digest"] = self.tasks_digest()
             write_json(self.final_path(), fin)
@@ -659,9 +700,13 @@ def cmd_status(args) -> int:
         "run": {k: run.get(k) for k in ("id", "status", "started", "finished", "completed", "total", "exit_code")} if run else None,
         "escalation": esc,
     }
+    if run and run.get("status") == "running":
+        data["run"]["now"] = describe_current(run.get("current"))
     text = f"{project}: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
     if run:
         text += f" | last run {run['id']}: {run['status']}"
+        if data["run"].get("now"):
+            text += f" | now: {data['run']['now']}"
     if esc:
         text += f" | ESCALATION {esc['kind']}: {esc['reason']}"
     emit(data, args.json, text)
@@ -675,7 +720,22 @@ def wait_state(root: Path, project: str | None) -> dict:
     info = {k: run.get(k) for k in ("id", "project", "status", "completed", "total", "exit_code", "escalation")}
     st = str(run.get("status"))
     info["state"] = "running" if st == "running" else "finished"
+    if info["state"] == "running":
+        info["now"] = describe_current(run.get("current"))
+        info["recent"] = run.get("recent") or []
     return info
+
+
+def describe_current(cur: dict | None) -> str:
+    """One line for the chef's poll output: which agent works on what, for how long, and its last action."""
+    if not cur:
+        return "driver between roles (gate or bookkeeping)"
+    what = " ".join(x for x in (cur.get("agent"), "on", cur.get("task") or "the project", f"({cur['label']})" if cur.get("label") else "") if x)
+    secs = int(time.time() - (cur.get("t0") or time.time()))
+    line = f"{what}, {secs // 60}m{secs % 60:02d}s, {cur.get('steps', 0)} steps"
+    if cur.get("last"):
+        line += f", last: {cur['last']}"
+    return line
 
 
 def cmd_wait(args) -> int:

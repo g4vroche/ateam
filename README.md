@@ -39,6 +39,7 @@ For every ready task: lock the task definition → fresh `coder` session → har
 
 - Failure handling: the same failure signature twice → `needs_architect`; `max_attempts` bounds retries → `blocked`. Only transient provider errors are retried inside a role.
 - Resumable (`--resume`), single-run lock, roles die with the driver, wall-clock timeouts per task, role and gate.
+- Visible in OpenCode: when the driver finds the busy `chef` session of the same directory on the background service, every role runs as a child session of it (titled like `TASK-002 - coder - attempt 1/3`), so the UI shows it live like a native subagent. Otherwise roles run on a private `--standalone` server. Each `ateam.py wait` poll also reports the working agent, its task, elapsed time and last action (`now`) plus the latest driver messages (`recent`).
 - Exit codes: `0` completed, `10` blocked, `11` needs_architect (see `escalation.json`), `12` failed, `130` interrupted.
 
 ### Gate integrity
@@ -91,6 +92,7 @@ Defaults live in `common.DEFAULT_CONFIG`; override any key.
 | `max_review_rounds` | 3 | final review rounds |
 | `final_review`, `tester`, `adhoc_tester` | true, true, false | optional stages |
 | `role_retries`, `retry_backoff_s` | 2, 20 | transient provider errors only |
+| `attach_to_chef` | true | run roles as child sessions of the active chef session (`ATEAM_PARENT_SESSION=<id>` forces a parent) |
 | `max_task_chars` | 6000 | hard size limit of a task file |
 | `skill_budget` | 8 | max installed skills (each costs description tokens on every step) |
 | `feedback_notes_per_task` | 2 | cap on agent notes |

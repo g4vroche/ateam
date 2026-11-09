@@ -23,7 +23,7 @@
       "resource": "*ateam.py*",
       "from": "deny",
       "to": "allow",
-      "reason": "Chef starts the deterministic driver (run, status) and keeps the documented fallback commands (work next/start/gate/fail/complete) for when the driver cannot start."
+      "reason": "Chef starts the deterministic driver (run, status) and keeps the documented fallback commands (work next/start/gate/fail/complete) for when the driver cannot start. work validate is read-only: the chef checks the architect's project with it (a denied validate once led a chef to believe it had no shell and to bypass the driver)."
     },
     {
       "agent": "chef",
